@@ -1,0 +1,8 @@
+*.npy
+*.pyc
+.idea
+runs
+embeddings
+models
+coha_results
+data
