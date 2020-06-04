@@ -34,7 +34,7 @@ def get_shifts(input_path):
 def add_embedding_to_list(previous, word_emb):
     embeds = [x[0] / x[1] for x in previous]
     cs = list(cosine_similarity(word_emb.reshape(1, -1), np.array(embeds))[0].tolist())
-    if len(previous) < 3 and max(cs) < 0.9:
+    if len(previous) < 200 and max(cs) < 0.9:
         max_idx = len(previous)
         previous.append((word_emb, 1))
     else:
