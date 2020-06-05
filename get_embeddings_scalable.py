@@ -113,8 +113,8 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
 
                 tokenized_text = []
 
-
-                for sent in sent_tokenizer.tokenize(text):
+                # uncomment this and comment the part above if you  want to use an entire sequence of 128 or 256 or whatever as a context
+                '''for sent in sent_tokenizer.tokenize(text):
                     sent_counter += 1
                     lsent = sent.strip().lower()
                     if len(lsent.split()) > 3:
@@ -136,14 +136,14 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
 
                     if batch_counter % batch_size == 0:
                         batches.append(batch)
-                        batch = []
+                        batch = []'''
 
 
                 #uncomment this and comment the part above if you only want to use word's sentence as a context and not an entire sequence of 128 or 256 or whatever
-                '''for sent in sent_tokenizer.tokenize(text):
+                for sent in sent_tokenizer.tokenize(text):
                     sent_counter += 1
                     lsent = sent.strip().lower()
-                    if len(lsent) > 2:
+                    if len(lsent.split()) > 3:
 
                         marked_sent = "[CLS] " + lsent + " [SEP]"
                         tokenized_sent = tokenizer.tokenize(marked_sent)[:max_length]
@@ -156,7 +156,7 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
                         batch.append((indexed_tokens, tokenized_sent))
                         if batch_counter % batch_size == 0:
                             batches.append(batch)
-                            batch = []'''
+                            batch = []
 
     print()
     print('Tokenization done!')
@@ -404,7 +404,7 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
 
 if __name__ == '__main__':
     batch_size = 16
-    max_length = 256
+    max_length = 128
 
     datasets = ['data/coha/coha_1960.txt',
                 'data/coha/coha_1990.txt', ]
