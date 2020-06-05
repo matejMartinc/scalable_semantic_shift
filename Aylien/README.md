@@ -10,9 +10,7 @@ To build embeddings from scratch get Glove embeddings from here: https://nlp.sta
 python aylien_glove.py <path to aylien-covid-news.jsonl> <path to a Glove model, e.g. glove.42B.300d.txt>'
 ```
 
-This will take one day or so.
-
-Download ready embeddings from here:
+This will take one day or so. You can skip that and download ready embeddings from here:
 https://www.dropbox.com/s/6a8y6fu4o4n34n2/aylien_glove.zip?dl=0
 
 These are an npy file with embeddings and a pkl with ids.
