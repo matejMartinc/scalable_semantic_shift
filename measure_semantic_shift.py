@@ -9,6 +9,7 @@ from collections import Counter
 from scipy.stats import entropy
 import numpy as np
 import os
+import sys
 
 
 
@@ -82,7 +83,7 @@ def compute_averaged_embedding_dist(t1_embeddings, t2_embeddings):
     return dist
 
 
-def compute_divergence_from_cluster_labels(labels1, labels2):
+def compute_divergence_from_cluster_labels(labels1, labels2, name):
     labels_all = list(np.concatenate((labels1, labels2)))
     counts1 = Counter(labels1)
     counts2 = Counter(labels2)
@@ -97,11 +98,11 @@ def compute_divergence_from_cluster_labels(labels1, labels2):
     t2_dist = t2 / t2.sum()
 
     jsd = compute_jsd(t1_dist, t2_dist)
-    print("clustering JSD:", jsd)
+    print("clustering JSD", name+':', jsd)
     return jsd
 
 
-def compute_divergence_across_many_periods(labels, splits, corpus_slices):
+def compute_divergence_across_many_periods(labels, splits, corpus_slices, name):
     all_clusters = []
     clusters_dict = {}
     for split_num, split in enumerate(splits):
@@ -112,8 +113,12 @@ def compute_divergence_across_many_periods(labels, splits, corpus_slices):
     all_jsds = []
     for i in range(len(all_clusters)):
         if i < len(all_clusters) -1:
-            jsd = compute_divergence_from_cluster_labels(all_clusters[i],all_clusters[i+1])
+            jsd = compute_divergence_from_cluster_labels(all_clusters[i],all_clusters[i+1], name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
             all_jsds.append(jsd)
+    entire_jsd = compute_divergence_from_cluster_labels(all_clusters[0],all_clusters[-1], name + " First and last slice")
+    avg_jsd = sum(all_jsds)/len(all_jsds)
+    all_jsds.extend([entire_jsd, avg_jsd])
+    all_jsds = ["{:.6f}".format(score) for score in all_jsds]
     return all_jsds, clusters_dict
 
 
@@ -139,6 +144,10 @@ if __name__ == '__main__':
         }
     #target_words = []
     target_words = ['economy']
+
+    if get_additional_info and len(target_words) == 0:
+        print('Define a list of target words or set "get_additional_info" flag to False')
+        sys.exit()
 
     for lang, configs in embeddings_dict.items():
         for emb_type, embeddings_file in configs.items():
@@ -184,6 +193,7 @@ if __name__ == '__main__':
                 all_sentences = {}
                 splits = [0]
                 all_slices_present = True
+                all_freqs = []
 
                 for cs in corpus_slices:
                     cs_embeddings = []
@@ -198,6 +208,7 @@ if __name__ == '__main__':
                         continue
 
                     counts = [x[1] for x in emb[cs]]
+                    all_freqs.append(sum(counts))
                     cs_text = cs + '_text'
                     print("Slice: ", cs)
                     print("Num embeds: ", len(emb[cs]))
@@ -210,32 +221,27 @@ if __name__ == '__main__':
                         e, count_emb = emb[cs][idx]
                         e = e/count_emb
 
-                        try:
-                            sent_codes = emb[cs_text][idx]
-                        except:
-                            #unfinished sentence (missing context), ignore this embedding
-                            print('Should not happen')
-                            continue
-                        sents = []
+                        sent_codes = emb[cs_text][idx]
+
+                        sents = set()
                         num_sent_codes += len(sent_codes)
                         #print("Num sentences: ", len(sent_codes))
                         for sent in sent_codes:
                             if sent in count2sents[cs]:
                                 text = count2sents[cs][sent]
-                            sents.append(text)
-                            #print(text)
-                        print(sents)
 
+                            sents.add(text)
+                            #print(text)
 
                         cs_embeddings.append(e)
-                        cs_sentences.append(" ".join(sents))
+                        cs_sentences.append(" ".join(list(sents)))
 
                     all_embeddings.append(np.array(cs_embeddings))
                     all_sentences[cs] = cs_sentences
                     splits.append(splits[-1] + len(cs_embeddings))
 
 
-                print("Num sents: ", num_sent_codes)
+                print("Num all sents: ", num_sent_codes)
 
 
                 embeddings_concat = np.concatenate(all_embeddings, axis=0)
@@ -244,16 +250,13 @@ if __name__ == '__main__':
 
 
                 aff_prop_labels, aff_prop_centroids = cluster_word_embeddings_aff_prop(embeddings_concat)
-                all_aff_prop_jsds, clustered_aff_prop_labels = compute_divergence_across_many_periods(aff_prop_labels, splits, corpus_slices)
+                all_aff_prop_jsds, clustered_aff_prop_labels = compute_divergence_across_many_periods(aff_prop_labels, splits, corpus_slices, 'AFF PROP')
                 kmeans_5_labels, kmeans_5_centroids = cluster_word_embeddings_k_means(embeddings_concat, k=5)
-                all_kmeans5_jsds, clustered_kmeans_5_labels = compute_divergence_across_many_periods(kmeans_5_labels, splits, corpus_slices)
+                all_kmeans5_jsds, clustered_kmeans_5_labels = compute_divergence_across_many_periods(kmeans_5_labels, splits, corpus_slices, 'KMEANS 5')
                 kmeans_7_labels, kmeans_7_centroids = cluster_word_embeddings_k_means(embeddings_concat, k=7)
-                all_kmeans7_jsds, clustered_kmeans_7_labels = compute_divergence_across_many_periods(kmeans_7_labels, splits, corpus_slices)
-                all_aff_prop_jsds = all_aff_prop_jsds
-                all_aff_prop_jsds = all_aff_prop_jsds + [sum(all_aff_prop_jsds)/len(all_aff_prop_jsds)]
-                all_kmeans5_jsds = all_kmeans5_jsds + [sum(all_kmeans5_jsds) / len(all_kmeans5_jsds)]
-                all_kmeans7_jsds = all_kmeans7_jsds + [sum(all_kmeans7_jsds) / len(all_kmeans7_jsds)]
-                word_results = [word] +  all_aff_prop_jsds + all_kmeans5_jsds + all_kmeans7_jsds
+                all_kmeans7_jsds, clustered_kmeans_7_labels = compute_divergence_across_many_periods(kmeans_7_labels, splits, corpus_slices, 'KMEANS 7')
+                all_freqs = all_freqs + [sum(all_freqs)] + [sum(all_freqs)/len(all_freqs)]
+                word_results = [word] +  all_aff_prop_jsds + all_kmeans5_jsds + all_kmeans7_jsds + all_freqs
                 results.append(word_results)
 
                 #add results to dataframe for saving
@@ -269,11 +272,15 @@ if __name__ == '__main__':
                     kmeans_7_centroids_dict[word] = kmeans_7_centroids  # add results to dataframe for saving
 
             columns = ['word']
-            methods = ['JSD AP', 'JSD K5', 'JSD K7']
+            methods = ['JSD AP', 'JSD K5', 'JSD K7', 'FREQ']
             for method in methods:
                 for num_slice, cs in enumerate(corpus_slices):
-                    if num_slice < len(corpus_slices) - 1:
-                        columns.append(method + ' ' + cs + '-' + corpus_slices[num_slice + 1])
+                    if method == 'FREQ':
+                        columns.append(method + ' ' + cs)
+                    else:
+                        if num_slice < len(corpus_slices) - 1:
+                            columns.append(method + ' ' + cs + '-' + corpus_slices[num_slice + 1])
+                columns.append(method + ' All')
                 columns.append(method + ' Avg')
 
 
@@ -304,17 +311,4 @@ if __name__ == '__main__':
                     pf = open(data_file, 'wb')
                     pickle.dump(data, pf)
                     pf.close()
-
-
-
-
-#massie
-
-
-
-
-
-
-
-
 
