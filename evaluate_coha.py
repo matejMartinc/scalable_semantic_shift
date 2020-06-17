@@ -179,6 +179,18 @@ Averaging
 Spearman:  0.20788093343669897
 '''
 
+'''
+best 200 0.9
+Aff prop
+Spearman:  0.3715650393456402
+kmeans 5
+Spearman:  0.4645588281664172
+kmeans 7
+Spearman:  0.45666409637016603
+Averaging
+Spearman:  0.35144201734723024
+'''
+
 
 
 
