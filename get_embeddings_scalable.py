@@ -5,12 +5,15 @@ import pickle
 import gc
 import re
 from collections import defaultdict
+from tokenizers import (BertWordPieceTokenizer)
 import pandas as pd
 import json
 import nltk
+import os
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import KMeans
-import os
+from sklearn.cluster import AffinityPropagation
+from collections import Counter
 
 
 
@@ -34,7 +37,7 @@ def get_shifts(input_path):
 def add_embedding_to_list(previous, word_emb):
     embeds = [x[0] / x[1] for x in previous]
     cs = list(cosine_similarity(word_emb.reshape(1, -1), np.array(embeds))[0].tolist())
-    if len(previous) < 200 and max(cs) < 0.9:
+    if len(previous) < 200 and max(cs) < 0.99:
         max_idx = len(previous)
         previous.append((word_emb, 1))
     else:
@@ -46,42 +49,50 @@ def add_embedding_to_list(previous, word_emb):
     return previous, max_idx
 
 
-def cluster_word_embeddings_k_means(word_embeddings, k):
+'''def cluster_word_embeddings_k_means(word_embeddings, k):
     clustering = KMeans(n_clusters=k, random_state=0).fit(word_embeddings)
     labels = clustering.labels_
     exemplars = clustering.cluster_centers_
     return labels, exemplars
 
 
-def add_embedding_to_list_kmeans(previous, word_emb):
+def cluster_word_embeddings_aff_prop(word_embeddings, preference=None):
+    if preference is not None:
+        clustering = AffinityPropagation(preference=preference).fit(word_embeddings)
+    else:
+        clustering = AffinityPropagation().fit(word_embeddings)
+    labels = clustering.labels_
+    counts = Counter(labels)
+    #print("Aff prop num of clusters:", len(counts))
+    exemplars = clustering.cluster_centers_
+    return labels, exemplars
+
+
+def add_embedding_to_list(previous, word_emb):
     embeds = [x[0] / x[1] for x in previous]
     treshold = 200
-    k = int(treshold/2)
+    #k = int(treshold/3)
     if len(previous) < treshold:
         previous.append((word_emb, 1))
     else:
-        _, centroids = cluster_word_embeddings_k_means(embeds, k)
+        _, centroids = cluster_word_embeddings_aff_prop(embeds)
         #print(centroids.shape)
         previous = []
         for c in centroids:
             previous.append((c, 1))
         previous.append((word_emb, 1))
-    return previous, 1
+    return previous, 1'''
 
 
-def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang):
+def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang, task):
 
     batches = []
     batch = []
     batch_counter = 0
     sent_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
-    frequencies = defaultdict(int)
-
-    if lang == 'swedish_multi':
-        target_words = list(target_words.values())
-    else:
-        target_words = list(target_words.keys())
+    #frequencies = defaultdict(int)
+    #target_words = list(target_words.keys())
 
     print('Dataset: ', ds)
     counter = 0
@@ -99,71 +110,79 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
             #if counter > 50:
             #    break
 
-            line = json.loads(line)
-            text = line['content']
+            if task=='syntetic':
+                text = line.replace('_xx', '')
+            else:
+                line = json.loads(line)
+                text = line['content']
 
-            contains = False
+            #for w in target_words:
+            #    if w.strip() in set(text.split()):
+            #        frequencies[w] += text.count(w)
 
-            for w in target_words:
-                if w.strip() in set(text.split()):
-                    frequencies[w] += text.count(w)
-                    contains = True
+            tokenized_text = []
 
-            if contains:
+            #print(line)
 
-                tokenized_text = []
-
-                # uncomment this and comment the part above if you  want to use an entire sequence of 128 or 256 or whatever as a context
-                '''for sent in sent_tokenizer.tokenize(text):
-                    sent_counter += 1
-                    lsent = sent.strip().lower()
-                    if len(lsent.split()) > 3:
-                        marked_sent = "[CLS] " + lsent + " [SEP]"
-                        tokenized_sent = tokenizer.tokenize(marked_sent)
-                        tokenized_text.extend(tokenized_sent)
-                        sent = tokenizer.convert_tokens_to_string(tokenized_sent)
-                        count2sent[sent_counter] = sent
-                        sent2count[sent] = sent_counter
-
-                for i in range(0, len(tokenized_text), max_length):
-
-                    batch_counter += 1
-                    input_sequence = tokenized_text[i:i + max_length]
-
-                    indexed_tokens = tokenizer.convert_tokens_to_ids(input_sequence)
-
-                    batch.append((indexed_tokens, input_sequence))
-
-                    if batch_counter % batch_size == 0:
-                        batches.append(batch)
-                        batch = []'''
-
-
-                #uncomment this and comment the part above if you only want to use word's sentence as a context and not an entire sequence of 128 or 256 or whatever
-                for sent in sent_tokenizer.tokenize(text):
-                    sent_counter += 1
-                    lsent = sent.strip().lower()
-                    if len(lsent.split()) > 3:
-
-                        marked_sent = "[CLS] " + lsent + " [SEP]"
-                        tokenized_sent = tokenizer.tokenize(marked_sent)[:max_length]
-
-                        sent = tokenizer.convert_tokens_to_string(tokenized_sent)
-                        count2sent[sent_counter] = sent
-                        sent2count[sent] = sent_counter
+            for sent in sent_tokenizer.tokenize(text):
+                sent_counter += 1
+                lsent = sent.strip().lower()
+                if len(lsent.split()) > 3:
+                    marked_sent = "[CLS] " + lsent + " [SEP]"
+                    tokenized_sent = tokenizer.tokenize(marked_sent)
+                    if len(tokenized_sent) > max_length:
+                        tokenized_sent = tokenized_sent[:max_length - 1] + ['[SEP]']
+                    sent = tokenizer.convert_tokens_to_string(tokenized_sent)
+                    count2sent[sent_counter] = sent
+                    sent2count[sent] = sent_counter
+                    if len(tokenized_text) + len(tokenized_sent) > max_length:
+                        indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+                        #print("Batch counter: ", len(tokenized_text), batch_counter, tokenized_text)
+                        batch.append((indexed_tokens, tokenized_text))
                         batch_counter += 1
-                        indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_sent)
-                        batch.append((indexed_tokens, tokenized_sent))
+                        tokenized_text = tokenized_sent
                         if batch_counter % batch_size == 0:
                             batches.append(batch)
                             batch = []
+                    else:
+                        tokenized_text.extend(tokenized_sent)
+
+            if len(tokenized_text) > 0:
+                #print("Batch counter: ", len(tokenized_text), batch_counter, tokenized_text)
+                indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+                batch.append((indexed_tokens, tokenized_text))
+                batch_counter += 1
+                if batch_counter % batch_size == 0:
+                    batches.append(batch)
+                    batch = []
+            #print('-----------------------------------')
+            #print()
+
+            #uncomment this and comment the part above if you only want to use word's sentence as a context and not an entire sequence of 128 or 256 or whatever
+            '''for sent in sent_tokenizer.tokenize(text):
+                sent_counter += 1
+                lsent = sent.strip().lower()
+                if len(lsent.split()) > 3:
+
+                    marked_sent = "[CLS] " + lsent + " [SEP]"
+                    tokenized_sent = tokenizer.tokenize(marked_sent)[:max_length]
+
+                    sent = tokenizer.convert_tokens_to_string(tokenized_sent)
+                    count2sent[sent_counter] = sent
+                    sent2count[sent] = sent_counter
+                    batch_counter += 1
+                    indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_sent)
+                    batch.append((indexed_tokens, tokenized_sent))
+                    if batch_counter % batch_size == 0:
+                        batches.append(batch)
+                        batch = []'''
 
     print()
     print('Tokenization done!')
     print('len batches: ', len(batches))
 
-    for w, freq in frequencies.items():
-        print(w + ': ', str(freq))
+    #for w, freq in frequencies.items():
+    #    print(w + ': ', str(freq))
 
     return batches, count2sent, sent2count
 
@@ -233,16 +252,17 @@ def get_token_embeddings(batches, model, batch_size):
     return encoder_token_embeddings, tokenized_text
 
 
-def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, concat=False, kmeans_clustering=True):
+def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, task):
     vocab_vectors = {}
     count2sents = {}
 
     for ds in datasets:
 
-        period = ds[-8:-4]
+        period = ds.split('_')[1].split('.')[0]
 
-        all_batches,  count2sent, sent2count = tokens_to_batches(ds, tokenizer, batch_size, max_length, target_dict, lang)
-        count2sents['t' + period] = count2sent
+        all_batches,  count2sent, sent2count = tokens_to_batches(ds, tokenizer, batch_size, max_length, target_dict, lang, task)
+
+        count2sents[period] = count2sent
         targets = set(list(target_dict.keys()))
         chunked_batches = chunks(all_batches, 1000)
         num_chunk = 0
@@ -255,10 +275,7 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
             encoder_token_embeddings, tokenized_text = get_token_embeddings(batches, model, batch_size)
 
             splitted_tokens = []
-            if not concat:
-                encoder_splitted_array = np.zeros((1, 768))
-            else:
-                encoder_splitted_array = []
+            encoder_splitted_array = np.zeros((1, 768))
             prev_token = ""
             encoder_prev_array = np.zeros((1, 768))
             sent_tokens = []
@@ -279,33 +296,29 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
                             #print('Count: ', sentence)
                             for sent_token, sent_idx in sent_tokens:
                                 #print(sent_token, count2sent[sentence])
-                                if sent_idx in vocab_vectors[sent_token]['t' + period + '_text']:
-                                    vocab_vectors[sent_token]['t' + period + '_text'][sent_idx].append(sentence)
+                                if sent_idx in vocab_vectors[sent_token][period + '_text']:
+                                    vocab_vectors[sent_token][period + '_text'][sent_idx].append(sentence)
                                 else:
-                                    vocab_vectors[sent_token]['t' + period + '_text'][sent_idx] = [sentence]
+                                    vocab_vectors[sent_token][period + '_text'][sent_idx] = [sentence]
                             sent_tokens = []
 
                     encoder_array = encoder_token_embeddings[example_idx][i]
 
                     #word is split into parts
-                    if token_i.startswith('##'):
+                    if token_i.startswith('##') or token_i == '-' or (len(splitted_tokens) > 0 and splitted_tokens[-1] == '-'):
 
                         #add words prefix (not starting with ##) to the list
                         if prev_token:
                             splitted_tokens.append(prev_token)
                             prev_token = ""
-                            if not concat:
-                                encoder_splitted_array = encoder_prev_array
-                            else:
-                                encoder_splitted_array.append(encoder_prev_array)
+                            encoder_splitted_array = encoder_prev_array
+
 
 
                         #add word to splitted tokens array and add its embedding to splitted_array
                         splitted_tokens.append(token_i)
-                        if not concat:
-                            encoder_splitted_array += encoder_array
-                        else:
-                            encoder_splitted_array.append(encoder_array)
+                        encoder_splitted_array += encoder_array
+
 
                     #word is not split into parts
                     else:
@@ -314,65 +327,44 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
                             if i == len(example) - 1 or not example[i + 1].startswith('##'):
                                 if token_i in vocab_vectors:
                                     #print("In vocab: ", token_i + '_' + period, list(vocab_vectors.keys()))
-                                    if 't' + period in vocab_vectors[token_i]:
-                                        previous = vocab_vectors[token_i]['t' + period]
-                                        if not kmeans_clustering:
-                                            new, new_idx = add_embedding_to_list(previous, encoder_array.squeeze())
-                                            sent_tokens.append((token_i, new_idx))
-                                        else:
-                                            new, new_idx = add_embedding_to_list_kmeans(previous, encoder_array.squeeze())
-                                        vocab_vectors[token_i]['t' + period] = new
-
+                                    if period in vocab_vectors[token_i]:
+                                        previous = vocab_vectors[token_i][period]
+                                        new, new_idx = add_embedding_to_list(previous, encoder_array.squeeze())
+                                        vocab_vectors[token_i][period] = new
+                                        sent_tokens.append((token_i, new_idx))
                                     else:
-                                        vocab_vectors[token_i]['t' + period] = [(encoder_array.squeeze(), 1)]
-                                        vocab_vectors[token_i]['t' + period + '_text'] = {}
-                                        if not kmeans_clustering:
-                                            sent_tokens.append((token_i, 0))
-
+                                        vocab_vectors[token_i][period] = [(encoder_array.squeeze(), 1)]
+                                        vocab_vectors[token_i][period + '_text'] = {}
+                                        sent_tokens.append((token_i, 0))
                                 else:
                                     #print("Not in vocab yet: ", token_i + '_' + period, list(vocab_vectors.keys()))
-                                    vocab_vectors[token_i] = {'t' + period:[(encoder_array.squeeze(), 1)], 't' + period + '_text': {}}
-                                    if not kmeans_clustering:
-                                        sent_tokens.append((token_i, 0))
-
+                                    vocab_vectors[token_i] = {period:[(encoder_array.squeeze(), 1)], period + '_text': {}}
+                                    sent_tokens.append((token_i, 0))
                         #check if there are words in splitted tokens array, calculate average embedding and add the word to the vocabulary
                         if splitted_tokens:
-                            if not concat:
-                                encoder_sarray = encoder_splitted_array / len(splitted_tokens)
-                            else:
-                                encoder_sarray = np.concatenate(encoder_splitted_array, axis=1)
+
+                            encoder_sarray = encoder_splitted_array / len(splitted_tokens)
                             stoken_i = "".join(splitted_tokens).replace('##', '')
 
                             if stoken_i in targets:
                                 if stoken_i in vocab_vectors:
                                     #print("S In vocab: ", stoken_i + '_' + period, list(vocab_vectors.keys()))
-                                    if 't' + period in vocab_vectors[stoken_i]:
-                                        previous = vocab_vectors[stoken_i]['t' + period]
-                                        if not kmeans_clustering:
-                                            new, new_idx = add_embedding_to_list(previous, encoder_sarray.squeeze())
-                                            sent_tokens.append((stoken_i, new_idx))
-                                        else:
-                                            new, new_idx = add_embedding_to_list_kmeans(previous, encoder_sarray.squeeze())
-                                        vocab_vectors[stoken_i]['t' + period] = new
-
+                                    if period in vocab_vectors[stoken_i]:
+                                        previous = vocab_vectors[stoken_i][period]
+                                        new, new_idx = add_embedding_to_list(previous, encoder_sarray.squeeze())
+                                        vocab_vectors[stoken_i][period] = new
+                                        sent_tokens.append((stoken_i, new_idx))
                                     else:
-                                        vocab_vectors[stoken_i]['t' + period] = [(encoder_sarray.squeeze(), 1)]
-                                        vocab_vectors[stoken_i]['t' + period + '_text'] = {}
-                                        if not kmeans_clustering:
-                                            sent_tokens.append((stoken_i, 0))
-
+                                        vocab_vectors[stoken_i][period] = [(encoder_sarray.squeeze(), 1)]
+                                        vocab_vectors[stoken_i][period + '_text'] = {}
+                                        sent_tokens.append((stoken_i, 0))
                                 else:
                                     #print("S Not in vocab yet: ", stoken_i + '_' + period, list(vocab_vectors.keys()))
-                                    vocab_vectors[stoken_i] = {'t' + period: [(encoder_sarray.squeeze(), 1)], 't' + period + '_text': {}}
-                                    if not kmeans_clustering:
-                                        sent_tokens.append((stoken_i, 0))
+                                    vocab_vectors[stoken_i] = {period: [(encoder_sarray.squeeze(), 1)], period + '_text': {}}
+                                    sent_tokens.append((stoken_i, 0))
 
                             splitted_tokens = []
-                            if not concat:
-                                encoder_splitted_array = np.zeros((1, 768))
-                            else:
-                                encoder_splitted_array = []
-
+                            encoder_splitted_array = np.zeros((1, 768))
 
                         encoder_prev_array = encoder_array
                         prev_token = token_i
@@ -403,38 +395,56 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
 
 
 if __name__ == '__main__':
+    task = 'syntetic'
     batch_size = 16
-    max_length = 128
+    max_length = 256
 
-    datasets = ['data/coha/coha_1960.txt',
-                'data/coha/coha_1990.txt', ]
+    if task=='coha':
+        datasets = ['data/coha/coha_1960.txt',
+                    'data/coha/coha_1990.txt', ]
+        state_dict = torch.load("models/model_coha_epoch_5/checkpoint-69350/pytorch_model.bin")
+        embeddings_path = 'embeddings/coha_5_yearly_fine_tuned.pickle'
+        shifts_dict = get_shifts('data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv')
+    elif task=='aylien':
+        datasets = ['data/aylien/aylien_january_balanced.txt',
+                    'data/aylien/aylien_february_balanced.txt',
+                    'data/aylien/aylien_march_balanced.txt',
+                    'data/aylien/aylien_april_balanced.txt',]
+        #datasets = ['data/aylien/aylien_cnn.txt',
+        #            'data/aylien/aylien_fox.txt']
+        state_dict = torch.load("models/model_aylien/checkpoint-173935/pytorch_model.bin")
+        embeddings_path = 'embeddings/aylien_monthly_balanced_fine_tuned.pickle'
+        shifts_dict = get_shifts('data/aylien/vocab.csv')
+
+    elif task=='syntetic':
+        datasets = ['data/syntetic_data/raw/00.txt',
+                    'data/syntetic_data/raw/01.txt',
+                    'data/syntetic_data/raw/02.txt',
+                    'data/syntetic_data/raw/03.txt',
+                    'data/syntetic_data/raw/04.txt',
+                    'data/syntetic_data/raw/05.txt',
+                    'data/syntetic_data/raw/06.txt',
+                    'data/syntetic_data/raw/07.txt',
+                    'data/syntetic_data/raw/08.txt',
+                    'data/syntetic_data/raw/09.txt',]
+
+        embeddings_path = 'embeddings/syntetic_pretrained.pickle'
+        shifts_dict = get_shifts('data/aylien/vocab.csv')
 
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
 
-    # fine tuning
-    state_dict = torch.load("models/model_coha_epoch_5/checkpoint-69350/pytorch_model.bin")
-    model = BertModel.from_pretrained('bert-base-uncased', state_dict=state_dict, output_hidden_states=True)
-
-    #no fine tuning
-    #model = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)
+    if task=='syntetic':
+        model = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)
+    else:
+        model = BertModel.from_pretrained('bert-base-uncased', state_dict=state_dict, output_hidden_states=True)
 
     model.cuda()
     model.eval()
 
-    embeddings_path = 'embeddings/coha_5_yearly_fine_tuned.pickle'
-
-    if not os.path.exists(embeddings_path.split('/')[0]):
-        os.makedirs(embeddings_path.split('/')[0])
-
-    shifts_dict = get_shifts('data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv')
-    print(shifts_dict.items())
-
+    #print(shifts_dict.items())
     lang = 'English'
-
-    get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, shifts_dict, kmeans_clustering=False)
-
-
+    get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, shifts_dict, task)
 
 
 

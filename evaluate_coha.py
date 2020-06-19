@@ -13,16 +13,12 @@ folder= 'coha_results'
 folder_results = 'test_data_truth/task2'
 
 path = 'coha_results/results_english_fine_tuned_averaged.csv'
-df = pd.read_csv(path, encoding='utf8', sep='\t')
+df = pd.read_csv(path, encoding='utf8', sep=';')
 df = df.sort_values('word')
 print(df)
-aff = df['aff_prop'].tolist()
-kmeans5 = df['kmeans_5'].tolist()
-kmeans7 = df['kmeans_7'].tolist()
-avg = df['averaging'].tolist()
-
-
-
+aff = df['JSD AP 1960-1990'].tolist()
+kmeans5 = df['JSD K5 1960-1990'].tolist()
+kmeans7 = df['JSD K7 1960-1990'].tolist()
 
 gs = get_shifts('data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv').items()
 gs = sorted(gs, key=lambda x: x[0])
@@ -48,9 +44,7 @@ print('kmeans 7')
 spearman = spearmanr(kmeans7, gs_shifts)[0]
 print('Spearman: ', spearman)
 
-print('Averaging')
-spearman = spearmanr(avg, gs_shifts)[0]
-print('Spearman: ', spearman)
+
 
 '''
 baseline pretrained
@@ -179,17 +173,117 @@ Averaging
 Spearman:  0.20788093343669897
 '''
 
+
 '''
-best 200 0.9
 Aff prop
-Spearman:  0.3715650393456402
+aff prop stuff, divide and conquer, fine-tuned treshold 200
+Spearman:  0.2756867684313412
 kmeans 5
-Spearman:  0.4645588281664172
+Spearman:  0.3498220593942333
 kmeans 7
-Spearman:  0.45666409637016603
+Spearman:  0.2564796720266089
 Averaging
-Spearman:  0.35144201734723024
+Spearman:  0.12447702228703927
+
 '''
+
+''' new 200 0.9 256
+Aff prop
+Spearman:  0.4035130708743658
+kmeans 5
+Spearman:  0.4419887810744506
+kmeans 7
+Spearman:  0.3944836849844543
+Averaging
+Spearman:  0.34394373095719777
+
+
+'''
+
+
+
+
+'''
+scikit 21.3
+Aff prop
+Spearman:  0.3681679123302836
+kmeans 5
+Spearman:  0.4266777860756605
+kmeans 7
+Spearman:  0.43084729810658096
+'''
+
+'''
+scikit 23.1 random seed 0
+Aff prop
+Spearman:  0.3681679123302836
+kmeans 5
+Spearman:  0.4309512885397381
+kmeans 7
+Spearman:  0.4046559325092157
+'''
+
+'''
+scikit 23.1 random seed 123
+Aff prop
+Spearman:  0.3681679123302836
+kmeans 5
+Spearman:  0.4264795633725511
+kmeans 7
+Spearman:  0.43414189613757065
+'''
+
+'''
+scikit 23.1 random seed 2019
+Aff prop
+Spearman:  0.3681679123302836
+kmeans 5
+Spearman:  0.4089211527231606
+kmeans 7
+Spearman:  0.42849596673176676
+'''
+
+'''
+scikit 23.1 random seed 2020
+Aff prop
+Spearman:  0.3681679123302836
+kmeans 5
+Spearman:  0.4089211527231606
+kmeans 7
+Spearman:  0.42849596673176676
+'''
+
+'''
+scikit 23.1 random seed 888
+Aff prop
+Spearman:  0.3681679123302836
+kmeans 5
+Spearman:  0.47920680239963476
+kmeans 7
+Spearman:  0.45099082590186423
+'''
+
+#original embeddings
+''' scikit 21.3
+Aff prop
+Spearman:  0.5106011774127791
+kmeans 5
+Spearman:  0.5011890166478977
+kmeans 7
+Spearman:  0.48013639852456125
+
+'''
+
+'''scikit 23.3
+Aff prop
+Spearman:  0.44822699803710647
+kmeans 5
+Spearman:  0.5071493682724268
+kmeans 7
+Spearman:  0.46180421611975986
+'''
+
+
 
 
 

@@ -32,11 +32,8 @@ def filter_english(text, word):
 
 
 
-def cluster_word_embeddings_aff_prop(word_embeddings, preference=None):
-    if preference is not None:
-        clustering = AffinityPropagation(preference=preference).fit(word_embeddings)
-    else:
-        clustering = AffinityPropagation().fit(word_embeddings)
+def cluster_word_embeddings_aff_prop(word_embeddings, random_state):
+    clustering = AffinityPropagation(random_state=random_state).fit(word_embeddings)
     labels = clustering.labels_
     counts = Counter(labels)
     print("Aff prop num of clusters:", len(counts))
@@ -52,8 +49,8 @@ def cluster_word_embeddings_dbscan(word_embeddings):
     return labels
 
 
-def cluster_word_embeddings_k_means(word_embeddings, k=3):
-    clustering = KMeans(n_clusters=k, random_state=0).fit(word_embeddings)
+def cluster_word_embeddings_k_means(word_embeddings, k, random_state):
+    clustering = KMeans(n_clusters=k, random_state=random_state).fit(word_embeddings)
     labels = clustering.labels_
     exemplars = clustering.cluster_centers_
     return labels, exemplars
@@ -88,7 +85,7 @@ def compute_divergence_from_cluster_labels(labels1, labels2, name):
     counts1 = Counter(labels1)
     counts2 = Counter(labels2)
     n_senses = list(set(labels_all))
-    # print("Clusters:", len(n_senses))
+    print("Clusters:", len(n_senses))
 
     t1 = np.array([counts1[i] for i in n_senses])
     t2 = np.array([counts2[i] for i in n_senses])
@@ -101,6 +98,22 @@ def compute_divergence_from_cluster_labels(labels1, labels2, name):
     print("clustering JSD", name+':', jsd)
     return jsd
 
+def detect_meaning_gain_and_loss(labels1, labels2, name):
+    all_count = Counter(labels1 + labels2)
+    first_count = Counter(labels1)
+    second_count = Counter(labels2)
+    gained_meaning = False
+    lost_meaning = False
+    for label, c in all_count.items():
+        if c >= 10:
+            if label not in first_count or first_count[label] <= 2:
+                gained_meaning=True
+            if label not in second_count or second_count[label] <= 2:
+                lost_meaning=True
+    print(name, "gained meaning", gained_meaning, "lost meaning", lost_meaning)
+    return str(gained_meaning) + '/' + str(lost_meaning)
+
+
 
 def compute_divergence_across_many_periods(labels, splits, corpus_slices, name):
     all_clusters = []
@@ -111,39 +124,61 @@ def compute_divergence_across_many_periods(labels, splits, corpus_slices, name):
             clusters_dict[corpus_slices[split_num - 1]] = clusters
             all_clusters.append(clusters)
     all_jsds = []
+    all_meanings = []
     for i in range(len(all_clusters)):
         if i < len(all_clusters) -1:
             jsd = compute_divergence_from_cluster_labels(all_clusters[i],all_clusters[i+1], name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
+            meaning = detect_meaning_gain_and_loss(all_clusters[i],all_clusters[i+1], name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
+            all_meanings.append(meaning)
             all_jsds.append(jsd)
     entire_jsd = compute_divergence_from_cluster_labels(all_clusters[0],all_clusters[-1], name + " First and last slice")
+    meaning = detect_meaning_gain_and_loss(all_clusters[0],all_clusters[-1], name + " First and last slice")
+    all_meanings.append(meaning)
+
     avg_jsd = sum(all_jsds)/len(all_jsds)
     all_jsds.extend([entire_jsd, avg_jsd])
-    all_jsds = ["{:.6f}".format(score) for score in all_jsds]
-    return all_jsds, clusters_dict
+    all_jsds = [float("{:.6f}".format(score)) for score in all_jsds]
+    return all_jsds, all_meanings, clusters_dict
 
 
 if __name__ == '__main__':
+    random_state = 123
 
-    coha=False
-    get_additional_info = True
-    if coha:
+    task='coha'
+    get_additional_info = False
+    if task=='coha':
         results_dir = "coha_results/"
         corpus_slices = ['1960', '1990']
         embeddings_dict = {
             'english':
-                { 'fine_tuned_averaged': 'embeddings/coha_5_yearly_fine_tuned.pickle'},
+                { 'fine_tuned_averaged': 'embeddings/coha_5_yearly_fine_tuned_200_0.99.pickle'},
         }
-    else:
+    elif task=='aylien':
         results_dir = "aylien_results/"
         #corpus_slices = ['january', 'february', 'march', 'april']
         corpus_slices = ['fox', 'cnn']
         embeddings_dict = {
             'english':
-                #{'fine_tuned_averaged': 'embeddings/aylien_5_monthly_fine_tuned_balanced.pickle'},
+                #{'fine_tuned_averaged': 'embeddings/aylien_monthly_balanced_fine_tuned.pickle'},
                 {'fine_tuned_averaged': 'embeddings/aylien_5_cnn_fox_fine_tuned.pickle'}
         }
-    #target_words = []
-    target_words = ['economy']
+    elif task=='semeval':
+        results_dir = "semeval_scalable_results/"
+        #corpus_slices = ['january', 'february', 'march', 'april']
+        corpus_slices = ['1', '2']
+        embeddings_dict = {
+            'german':
+                {'fine_tuned_averaged': 'embeddings/german_5_epochs_scalable.pickle'},
+            'english':
+                {'fine_tuned_averaged': 'embeddings/english_5_epochs_scalable.pickle'},
+            'swedish':
+                {'fine_tuned_averaged': 'embeddings/swedish_5_epochs_scalable.pickle'},
+            'latin':
+                {'fine_tuned_averaged': 'embeddings/latin_5_epochs_scalable.pickle'},
+
+        }
+    target_words = []
+    #target_words = ['economy', 'covid-19']
 
     if get_additional_info and len(target_words) == 0:
         print('Define a list of target words or set "get_additional_info" flag to False')
@@ -152,11 +187,14 @@ if __name__ == '__main__':
     for lang, configs in embeddings_dict.items():
         for emb_type, embeddings_file in configs.items():
             print("Loading ", embeddings_file)
-
-            bert_embeddings, count2sents = pickle.load(open(embeddings_file, 'rb'))
+            try:
+                bert_embeddings, count2sents = pickle.load(open(embeddings_file, 'rb'))
+            except:
+                bert_embeddings = pickle.load(open(embeddings_file, 'rb'))
+                count2sents = None
 
             #if no predefined list of target words
-            if len(target_words) == 0:
+            if len(target_words) == 0 or len(target_words) > 10:
                 target_words = list(bert_embeddings.keys())
 
             jsd_vec = []
@@ -188,6 +226,7 @@ if __name__ == '__main__':
                 if word not in bert_embeddings:
                     continue
                 emb = bert_embeddings[word]
+                print(emb.keys())
 
                 all_embeddings = []
                 all_sentences = {}
@@ -218,20 +257,24 @@ if __name__ == '__main__':
                     for idx in range(len(emb[cs])):
 
                         #get summed embedding and its count, devide embedding by count
-                        e, count_emb = emb[cs][idx]
-                        e = e/count_emb
-
-                        sent_codes = emb[cs_text][idx]
+                        try:
+                            e, count_emb = emb[cs][idx]
+                            e = e/count_emb
+                        except:
+                            e = emb[cs][idx]
 
                         sents = set()
-                        num_sent_codes += len(sent_codes)
-                        #print("Num sentences: ", len(sent_codes))
-                        for sent in sent_codes:
-                            if sent in count2sents[cs]:
-                                text = count2sents[cs][sent]
 
-                            sents.add(text)
-                            #print(text)
+                        #print("Num sentences: ", len(sent_codes))
+                        if count2sents is not None:
+                            sent_codes = emb[cs_text][idx]
+                            num_sent_codes += len(sent_codes)
+                            for sent in sent_codes:
+                                if sent in count2sents[cs]:
+                                    text = count2sents[cs][sent]
+
+                                sents.add(text)
+                                #print(text)
 
                         cs_embeddings.append(e)
                         cs_sentences.append(" ".join(list(sents)))
@@ -245,18 +288,22 @@ if __name__ == '__main__':
 
 
                 embeddings_concat = np.concatenate(all_embeddings, axis=0)
+
+                #return no change, i.e., all zeros
                 if embeddings_concat.shape[0] < 7 or not all_slices_present:
-                    continue
+                    word_results = [word] + ([0] * (len(corpus_slices) + 1) * 3)  + all_freqs + ([0] * (len(corpus_slices)))
+                    print(word_results)
 
+                else:
+                    aff_prop_labels, aff_prop_centroids = cluster_word_embeddings_aff_prop(embeddings_concat, random_state)
+                    all_aff_prop_jsds, all_meanings, clustered_aff_prop_labels = compute_divergence_across_many_periods(aff_prop_labels, splits, corpus_slices, 'AFF PROP')
+                    kmeans_5_labels, kmeans_5_centroids = cluster_word_embeddings_k_means(embeddings_concat, 5, random_state)
+                    all_kmeans5_jsds, all_meanings, clustered_kmeans_5_labels = compute_divergence_across_many_periods(kmeans_5_labels, splits, corpus_slices, 'KMEANS 5')
+                    kmeans_7_labels, kmeans_7_centroids = cluster_word_embeddings_k_means(embeddings_concat, 7, random_state)
+                    all_kmeans7_jsds, all_meanings, clustered_kmeans_7_labels = compute_divergence_across_many_periods(kmeans_7_labels, splits, corpus_slices, 'KMEANS 7')
+                    all_freqs = all_freqs + [sum(all_freqs)] + [sum(all_freqs)/len(all_freqs)]
+                    word_results = [word] +  all_aff_prop_jsds + all_kmeans5_jsds + all_kmeans7_jsds + all_freqs + all_meanings
 
-                aff_prop_labels, aff_prop_centroids = cluster_word_embeddings_aff_prop(embeddings_concat)
-                all_aff_prop_jsds, clustered_aff_prop_labels = compute_divergence_across_many_periods(aff_prop_labels, splits, corpus_slices, 'AFF PROP')
-                kmeans_5_labels, kmeans_5_centroids = cluster_word_embeddings_k_means(embeddings_concat, k=5)
-                all_kmeans5_jsds, clustered_kmeans_5_labels = compute_divergence_across_many_periods(kmeans_5_labels, splits, corpus_slices, 'KMEANS 5')
-                kmeans_7_labels, kmeans_7_centroids = cluster_word_embeddings_k_means(embeddings_concat, k=7)
-                all_kmeans7_jsds, clustered_kmeans_7_labels = compute_divergence_across_many_periods(kmeans_7_labels, splits, corpus_slices, 'KMEANS 7')
-                all_freqs = all_freqs + [sum(all_freqs)] + [sum(all_freqs)/len(all_freqs)]
-                word_results = [word] +  all_aff_prop_jsds + all_kmeans5_jsds + all_kmeans7_jsds + all_freqs
                 results.append(word_results)
 
                 #add results to dataframe for saving
@@ -272,7 +319,7 @@ if __name__ == '__main__':
                     kmeans_7_centroids_dict[word] = kmeans_7_centroids  # add results to dataframe for saving
 
             columns = ['word']
-            methods = ['JSD AP', 'JSD K5', 'JSD K7', 'FREQ']
+            methods = ['JSD AP', 'JSD K5', 'JSD K7', 'FREQ', 'MEANING GAIN/LOSS']
             for method in methods:
                 for num_slice, cs in enumerate(corpus_slices):
                     if method == 'FREQ':
@@ -281,7 +328,8 @@ if __name__ == '__main__':
                         if num_slice < len(corpus_slices) - 1:
                             columns.append(method + ' ' + cs + '-' + corpus_slices[num_slice + 1])
                 columns.append(method + ' All')
-                columns.append(method + ' Avg')
+                if method != 'MEANING GAIN/LOSS':
+                    columns.append(method + ' Avg')
 
 
             if not os.path.exists(results_dir):
