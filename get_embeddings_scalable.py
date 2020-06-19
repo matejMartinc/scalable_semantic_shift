@@ -34,6 +34,13 @@ def get_shifts(input_path):
         shifts_dict[row['word']] = row['mean']
     return shifts_dict
 
+def get_syntetic_shifts(input_path):
+    shifts_dict = {}
+    df_shifts = pd.read_csv(input_path, sep=';', encoding='utf8')
+    for idx, row in df_shifts.iterrows():
+        shifts_dict[row['word']] = row['JSD first-last']
+    return shifts_dict
+
 def add_embedding_to_list(previous, word_emb):
     embeds = [x[0] / x[1] for x in previous]
     cs = list(cosine_similarity(word_emb.reshape(1, -1), np.array(embeds))[0].tolist())
@@ -429,7 +436,7 @@ if __name__ == '__main__':
                     'data/syntetic_data/raw/09.txt',]
 
         embeddings_path = 'embeddings/syntetic_pretrained.pickle'
-        shifts_dict = get_shifts('data/aylien/vocab.csv')
+        shifts_dict = get_syntetic_shifts('data/syntetic_data/syntetic_gs.csv')
 
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
