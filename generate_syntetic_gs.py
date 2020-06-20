@@ -20,9 +20,6 @@ def get_syntetic_targets():
         word_counter += 1
         row = [target.lower()]
 
-        if target == 'understand':
-            print(senses)
-
         for idx in range(len(time_slices) - 1):
             ts1 = list(senses[time_slices[idx]].items())
             ts1 = sorted(ts1, key=lambda x: x[0])
@@ -32,7 +29,7 @@ def get_syntetic_targets():
             ts2_dist = [x[1] for x in ts2]
             jsd = compute_jsd(ts1_dist, ts2_dist)
             if word_counter == 1:
-                columns.append('JSD ' + time_slices[idx] + '-' + time_slices[idx + 1])
+                columns.append('JSD ' + '0' + time_slices[idx] + '-0' + time_slices[idx + 1])
             row.append(jsd)
 
         ts_first = list(senses[time_slices[0]].items())
@@ -52,11 +49,5 @@ def get_syntetic_targets():
     df = df.sort_values(by=['JSD first-last'], ascending=False)
     df.to_csv('syntetic_gs.csv', encoding='utf8', sep=';', index=False)
 
-
-
-
-
-        #print(target, shifts)
-    #return list(targets)
 
 get_syntetic_targets()

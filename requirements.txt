@@ -5,7 +5,7 @@ tensorboard
 glob2
 tqdm
 pandas
-sklearn
+scikit-learn==0.21.3
 scipy
 numpy
 nltk

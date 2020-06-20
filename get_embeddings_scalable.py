@@ -106,6 +106,9 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang,
     sent_counter = 0
     sent2count = {}
     count2sent = {}
+    if task == 'syntetic':
+        sent2target_sent={}
+
     with open(ds, 'r', encoding='utf8') as f:
 
         for line in f:
@@ -118,7 +121,7 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang,
             #    break
 
             if task=='syntetic':
-                text = line.replace('_xx', '')
+                text = line
             else:
                 line = json.loads(line)
                 text = line['content']
@@ -135,6 +138,9 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang,
                 sent_counter += 1
                 lsent = sent.strip().lower()
                 if len(lsent.split()) > 3:
+                    if task == 'syntetic':
+                        target_sent = lsent
+                        lsent = lsent.replace('_xx', '')
                     marked_sent = "[CLS] " + lsent + " [SEP]"
                     tokenized_sent = tokenizer.tokenize(marked_sent)
                     if len(tokenized_sent) > max_length:
@@ -142,6 +148,8 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang,
                     sent = tokenizer.convert_tokens_to_string(tokenized_sent)
                     count2sent[sent_counter] = sent
                     sent2count[sent] = sent_counter
+                    if task == 'syntetic':
+                        sent2target_sent[sent] = target_sent
                     if len(tokenized_text) + len(tokenized_sent) > max_length:
                         indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
                         #print("Batch counter: ", len(tokenized_text), batch_counter, tokenized_text)
@@ -191,7 +199,9 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang,
     #for w, freq in frequencies.items():
     #    print(w + ': ', str(freq))
 
-    return batches, count2sent, sent2count
+    if task == 'syntetic':
+        return batches, count2sent, sent2count, sent2target_sent
+    return batches, count2sent, sent2count, None
 
 
 def get_token_embeddings(batches, model, batch_size):
@@ -265,9 +275,12 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
 
     for ds in datasets:
 
-        period = ds.split('_')[1].split('.')[0]
+        if task == 'syntetic':
+            period = ds.split('/')[-1].split('.')[0]
+        else:
+            period = ds.split('_')[1].split('.')[0]
 
-        all_batches,  count2sent, sent2count = tokens_to_batches(ds, tokenizer, batch_size, max_length, target_dict, lang, task)
+        all_batches,  count2sent, sent2count, sent2target_sense = tokens_to_batches(ds, tokenizer, batch_size, max_length, target_dict, lang, task)
 
         count2sents[period] = count2sent
         targets = set(list(target_dict.keys()))
@@ -289,6 +302,13 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
 
             #go through text token by token
             for example_idx, example in enumerate(tokenized_text):
+
+                #be careful, this only work cause one example for syntetic is only one sentence and not the whole sequence!
+                if task=="syntetic":
+                    start = example.index("[CLS]")
+                    finish = example.index("[SEP]")
+                    syn_sent = tokenizer.convert_tokens_to_string(example[start:finish + 1])
+                    target_sent = sent2target_sense[syn_sent]
                 for i, token_i in enumerate(example):
                     if token_i == "[CLS]":
                         last_start = i
@@ -330,6 +350,10 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
                     #word is not split into parts
                     else:
                         if token_i in targets:
+                            if task=='syntetic':
+                                if token_i + '_xx' not in target_sent:
+                                    #print("Token i", token_i, target_sent)
+                                    continue
                             #print(token_i)
                             if i == len(example) - 1 or not example[i + 1].startswith('##'):
                                 if token_i in vocab_vectors:
@@ -354,6 +378,10 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
                             stoken_i = "".join(splitted_tokens).replace('##', '')
 
                             if stoken_i in targets:
+                                if task == 'syntetic':
+                                    if stoken_i + '_xx' not in target_sent:
+                                        #print("Stoken i", stoken_i, target_sent)
+                                        continue
                                 if stoken_i in vocab_vectors:
                                     #print("S In vocab: ", stoken_i + '_' + period, list(vocab_vectors.keys()))
                                     if period in vocab_vectors[stoken_i]:
@@ -413,12 +441,12 @@ if __name__ == '__main__':
         embeddings_path = 'embeddings/coha_5_yearly_fine_tuned.pickle'
         shifts_dict = get_shifts('data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv')
     elif task=='aylien':
-        datasets = ['data/aylien/aylien_january_balanced.txt',
+        '''datasets = ['data/aylien/aylien_january_balanced.txt',
                     'data/aylien/aylien_february_balanced.txt',
                     'data/aylien/aylien_march_balanced.txt',
-                    'data/aylien/aylien_april_balanced.txt',]
-        #datasets = ['data/aylien/aylien_cnn.txt',
-        #            'data/aylien/aylien_fox.txt']
+                    'data/aylien/aylien_april_balanced.txt',]'''
+        datasets = ['data/aylien/aylien_cnn.txt',
+                    'data/aylien/aylien_fox.txt']
         state_dict = torch.load("models/model_aylien/checkpoint-173935/pytorch_model.bin")
         embeddings_path = 'embeddings/aylien_monthly_balanced_fine_tuned.pickle'
         shifts_dict = get_shifts('data/aylien/vocab.csv')

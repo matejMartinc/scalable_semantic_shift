@@ -32,8 +32,8 @@ def filter_english(text, word):
 
 
 
-def cluster_word_embeddings_aff_prop(word_embeddings, random_state):
-    clustering = AffinityPropagation(random_state=random_state).fit(word_embeddings)
+def cluster_word_embeddings_aff_prop(word_embeddings):
+    clustering = AffinityPropagation().fit(word_embeddings)
     labels = clustering.labels_
     counts = Counter(labels)
     print("Aff prop num of clusters:", len(counts))
@@ -144,7 +144,7 @@ def compute_divergence_across_many_periods(labels, splits, corpus_slices, name):
 if __name__ == '__main__':
     random_state = 123
 
-    task='coha'
+    task='semeval'
     get_additional_info = False
     if task=='coha':
         results_dir = "coha_results/"
@@ -160,7 +160,7 @@ if __name__ == '__main__':
         embeddings_dict = {
             'english':
                 #{'fine_tuned_averaged': 'embeddings/aylien_monthly_balanced_fine_tuned.pickle'},
-                {'fine_tuned_averaged': 'embeddings/aylien_5_cnn_fox_fine_tuned.pickle'}
+                {'fine_tuned_averaged': 'embeddings/aylien_fox_cnn_balanced_fine_tuned.pickle'}
         }
     elif task=='semeval':
         results_dir = "semeval_scalable_results/"
@@ -176,6 +176,13 @@ if __name__ == '__main__':
             'latin':
                 {'fine_tuned_averaged': 'embeddings/latin_5_epochs_scalable.pickle'},
 
+        }
+    elif task=='syntetic':
+        results_dir = "syntetic_results/"
+        corpus_slices = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
+        embeddings_dict = {
+            'english':
+                {'fine_tuned_averaged': 'embeddings/syntetic_pretrained.pickle'},
         }
     target_words = []
     #target_words = ['economy', 'covid-19']
@@ -226,7 +233,7 @@ if __name__ == '__main__':
                 if word not in bert_embeddings:
                     continue
                 emb = bert_embeddings[word]
-                print(emb.keys())
+                #print(emb.keys())
 
                 all_embeddings = []
                 all_sentences = {}
@@ -291,11 +298,11 @@ if __name__ == '__main__':
 
                 #return no change, i.e., all zeros
                 if embeddings_concat.shape[0] < 7 or not all_slices_present:
-                    word_results = [word] + ([0] * (len(corpus_slices) + 1) * 3)  + all_freqs + ([0] * (len(corpus_slices)))
-                    print(word_results)
-
+                    continue
+                    #word_results = [word] + ([0] * (len(corpus_slices) + 1) * 3)  + all_freqs + ([0] * (len(corpus_slices)))
+                    #print(word_results)
                 else:
-                    aff_prop_labels, aff_prop_centroids = cluster_word_embeddings_aff_prop(embeddings_concat, random_state)
+                    aff_prop_labels, aff_prop_centroids = cluster_word_embeddings_aff_prop(embeddings_concat)
                     all_aff_prop_jsds, all_meanings, clustered_aff_prop_labels = compute_divergence_across_many_periods(aff_prop_labels, splits, corpus_slices, 'AFF PROP')
                     kmeans_5_labels, kmeans_5_centroids = cluster_word_embeddings_k_means(embeddings_concat, 5, random_state)
                     all_kmeans5_jsds, all_meanings, clustered_kmeans_5_labels = compute_divergence_across_many_periods(kmeans_5_labels, splits, corpus_slices, 'KMEANS 5')

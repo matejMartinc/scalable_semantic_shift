@@ -2,7 +2,8 @@
 *.pyc
 .idea
 runs
-embeddings
+embeddings*
+results*
 models
 coha_results
 data

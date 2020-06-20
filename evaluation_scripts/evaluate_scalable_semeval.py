@@ -107,21 +107,21 @@ for i, avg in enumerate(averages):
 
 
 '''
-results_german_fine_tuned_averaged_kmeans5 : 0.5270386948241076
-results_german_fine_tuned_averaged_kmeans7 : 0.5124591768417727
+results_german_fine_tuned_averaged_kmeans5 : 0.5084334890406802
 results_german_fine_tuned_averaged_affprop : 0.49793406004593904
+results_german_fine_tuned_averaged_kmeans7 : 0.49755325174043025
+results_latin_fine_tuned_averaged_kmeans7 : 0.421314321022618
 results_english_fine_tuned_averaged_affprop : 0.3705021103109672
+results_latin_fine_tuned_averaged_kmeans5 : 0.3575214601240698
 results_latin_fine_tuned_averaged_affprop : 0.346451522497557
-results_latin_fine_tuned_averaged_kmeans5 : 0.3422299361145648
-results_latin_fine_tuned_averaged_kmeans7 : 0.34054130156136797
-results_english_fine_tuned_averaged_kmeans5 : 0.312763061440106
-results_english_fine_tuned_averaged_kmeans7 : 0.29201494326269184
-results_swedish_fine_tuned_averaged_kmeans5 : 0.10036489073193285
-results_swedish_fine_tuned_averaged_kmeans7 : 0.09611557076142764
+results_english_fine_tuned_averaged_kmeans5 : 0.3158456389978933
+results_english_fine_tuned_averaged_kmeans7 : 0.2712668250852777
+results_swedish_fine_tuned_averaged_kmeans5 : 0.073047833778685
+results_swedish_fine_tuned_averaged_kmeans7 : 0.0580740395969047
 results_swedish_fine_tuned_averaged_affprop : 0.011533868491371314
 Averages
-results_fine_tuned_averaged_kmeans5: 0.32059914577767784
-results_fine_tuned_averaged_kmeans7: 0.310282748106815
+results_fine_tuned_averaged_kmeans5: 0.31371210548533207
+results_fine_tuned_averaged_kmeans7: 0.3120521093613077
 results_fine_tuned_averaged_affprop: 0.3066053903364586
 '''
 
