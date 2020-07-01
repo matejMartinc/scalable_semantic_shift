@@ -36,7 +36,7 @@ from evaluation_scripts.evaluate_clustering_keywords import *
 
 
 
-def select_keywords(results_df, method='AP', frequency_threshold=30, nb_words = 50):
+def select_keywords(results_df, method='AP', frequency_threshold=[30,10000], nb_words = 50):
     """
     :param results_df: the dataframe of drifts results for a given dataset.
     :param method: either AP, K5 or K5 (aff-prop or kmeans)
@@ -49,12 +49,14 @@ def select_keywords(results_df, method='AP', frequency_threshold=30, nb_words = 
         results_df_changed = results_df_changed[(results_df_changed[col] > frequency_threshold)]
     target_res = results_df_changed.sort_values(by='JSD '+ method +' Avg', ascending = False)[:nb_words]
     target_words = list(target_res['word'])
-    target_words_reduc = [word for word in target_words if len(word)>1]
+    # delete words less than 2 characters or containing digits
+    target_words_reduc = [word for word in target_words if len(word)>1 and not bool(re.search(r'\d', word))][:nb_words]
     print(len(results_df),len(results_df_changed), len(target_res), len(target_words_reduc))
     file = open(target_words_path,"w+") 
     file.write("\t".join(target_words_reduc))
     file.close()
     return target_words_reduc
+
 
 def get_clusters_sent(target, method, corpus_slices_type, threshold_size_cluster):
     #sentences_dict = defaultdict(lambda : defaultdict(list))
@@ -118,15 +120,20 @@ def get_clusters_sent(target, method, corpus_slices_type, threshold_size_cluster
     return sent_df
 
 def output_distrib(data, word):
-    k = len(data['label'].unique())
 
+    k = data['label'].unique()
     distrib = data.groupby(['categ', "label"]).size().reset_index(name="count")
     pivot_distrib = distrib.pivot(index='categ', columns='label', values='count')
     pivot_distrib_norm = pivot_distrib.div(pivot_distrib.sum(axis=1), axis=0)
-    pivot_distrib_norm.columns = [str(i) for i in list(range(k))]
+    order = ['january', 'february', 'march', 'april']
+    fig, ax = subplots()
+    axs = pivot_distrib_norm.loc[order].plot.bar(stacked=True, title="Word: \"" + word + '\"', colormap='Spectral', ax=ax)
+    ax.legend(title='Cluster')
+    x_axis = axs.axes.get_xaxis()
+    x_axis.label.set_visible(False)
 
-    pivot_distrib_norm.plot.bar(stacked=True, title="Word: \"" + word + '\"', colormap='Spectral')
     return pivot_distrib_norm
+
 
 
 def extract_topn_from_vector(feature_names, sorted_items, topn):
@@ -201,14 +208,14 @@ def extract_keywords(word_clustered_data, max_df, topn, lemmatisation):
 
 
 
-def full_analysis(word, max_df = 0.7 , topn=15, method = "kmeans_5", lemmatisation = True, corpus_slices_type='months', threshold_size_cluster=10):
+def full_analysis(word, max_df = 0.8 , topn=15, method = "kmeans_5", lemmatisation = True, corpus_slices_type='months', threshold_size_cluster=10):
     clusters_sents_df = get_clusters_sent(word, method, corpus_slices_type, threshold_size_cluster)
     pivot_distrib = output_distrib(clusters_sents_df, word)
     keyword_clusters, sentences_clusters = extract_keywords(clusters_sents_df, topn = topn, max_df = max_df, lemmatisation = lemmatisation)
     for k in keyword_clusters:
         print(k)
         print(list(keyword_clusters[k].keys()))
-    evaluate_clustering(keyword_clusters, sentences_clusters)
+    #evaluate_clustering(keyword_clusters, sentences_clusters)
     return keyword_clusters
 
 
