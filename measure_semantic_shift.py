@@ -1,6 +1,6 @@
 import pickle
 import pandas as pd
-
+import argparse
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import AffinityPropagation
 from sklearn.cluster import KMeans
@@ -10,7 +10,6 @@ from scipy.stats import entropy
 import numpy as np
 import os
 import sys
-
 
 
 def compute_jsd(p, q):
@@ -142,28 +141,45 @@ def compute_divergence_across_many_periods(labels, splits, corpus_slices, name):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Measure semantic shift')
+    parser.add_argument('--task', type=str, default='aylien', help='Name of the corpus to analyse.')
+    parser.add_argument('--corpus_slices_type', type=str, default='months', help='Name of the corpus to analyse')
+    parser.add_argument('--get_additional_info', type=bool, default=True, help='Wether the cluster labels and sentences are saved or not.')
+    parser.add_argument('--target_words_path', type=str, default=None, help='Path of a txt file containing the list of target words to analyse. Set to None to use default.')
+    parser.add_argument('--results_path', type=str, default='', help='Path to the folder to save the results.')
+    parser.add_argument('--emb_path', type=str, help='Path to the embeddings folder.')
+    args = parser.parse_args()
+    
+    emb_path = args.emb_path
+    task = args.task
+    get_additional_info = args.get_additional_info
+    corpus_slices_type = args.corpus_slices_type
+    results_path = args.results_path
     random_state = 123
+    print('##############', task, corpus_slices_type, '##############')
 
-    task='semeval'
-    get_additional_info = False
+    #task='aylien'
+    #get_additional_info = True
     if task=='coha':
-        results_dir = "coha_results/"
+        results_dir = results_path + "coha_results/"
         corpus_slices = ['1960', '1990']
         embeddings_dict = {
             'english':
                 { 'fine_tuned_averaged': 'embeddings/coha_5_yearly_fine_tuned_200_0.99.pickle'},
         }
     elif task=='aylien':
-        results_dir = "aylien_results/"
-        #corpus_slices = ['january', 'february', 'march', 'april']
-        corpus_slices = ['fox', 'cnn']
+        results_dir = results_path +  "aylien_results/"
+        if corpus_slices_type=='months':
+            corpus_slices = ['january', 'february', 'march', 'april']
+            path = 'embeddings/aylien_monthly_balanced_fine_tuned.pickle'
+        elif corpus_slices_type=='sources':
+            corpus_slices = ['fox', 'cnn']
+            path = 'embeddings/aylien_fox_cnn_balanced_fine_tuned.pickle'
         embeddings_dict = {
-            'english':
-                #{'fine_tuned_averaged': 'embeddings/aylien_monthly_balanced_fine_tuned.pickle'},
-                {'fine_tuned_averaged': 'embeddings/aylien_fox_cnn_balanced_fine_tuned.pickle'}
+            'english':{'fine_tuned_averaged': path}
         }
     elif task=='semeval':
-        results_dir = "semeval_scalable_results/"
+        results_dir = results_path + "semeval_scalable_results/"
         #corpus_slices = ['january', 'february', 'march', 'april']
         corpus_slices = ['1', '2']
         embeddings_dict = {
@@ -178,15 +194,22 @@ if __name__ == '__main__':
 
         }
     elif task=='syntetic':
-        results_dir = "syntetic_results/"
+        results_dir = results_path + "syntetic_results/"
         corpus_slices = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
         embeddings_dict = {
             'english':
                 {'fine_tuned_averaged': 'embeddings/syntetic_pretrained.pickle'},
         }
+    
+    print("Results will be saved at", results_dir)
     target_words = []
+    if args.target_words_path is not None:
+        file = open(args.target_words_path,"r") 
+        target_words = file.read().split('\t')
+        file.close()
+        print("Target words imported:", len(target_words))
     #target_words = ['economy', 'covid-19']
-
+    
     if get_additional_info and len(target_words) == 0:
         print('Define a list of target words or set "get_additional_info" flag to False')
         sys.exit()
@@ -195,13 +218,13 @@ if __name__ == '__main__':
         for emb_type, embeddings_file in configs.items():
             print("Loading ", embeddings_file)
             try:
-                bert_embeddings, count2sents = pickle.load(open(embeddings_file, 'rb'))
+                bert_embeddings, count2sents = pickle.load(open(emb_path + embeddings_file, 'rb'))
             except:
-                bert_embeddings = pickle.load(open(embeddings_file, 'rb'))
+                bert_embeddings = pickle.load(open(emb_path + embeddings_file, 'rb'))
                 count2sents = None
 
             #if no predefined list of target words
-            if len(target_words) == 0 or len(target_words) > 10:
+            if len(target_words) == 0:# or len(target_words) > 10:
                 target_words = list(bert_embeddings.keys())
 
             jsd_vec = []
