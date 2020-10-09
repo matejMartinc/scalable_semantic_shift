@@ -56,7 +56,7 @@ def add_embedding_to_list(previous, word_emb):
     return previous, max_idx
 
 
-'''def cluster_word_embeddings_k_means(word_embeddings, k):
+def cluster_word_embeddings_k_means(word_embeddings, k):
     clustering = KMeans(n_clusters=k, random_state=0).fit(word_embeddings)
     labels = clustering.labels_
     exemplars = clustering.cluster_centers_
@@ -69,26 +69,27 @@ def cluster_word_embeddings_aff_prop(word_embeddings, preference=None):
     else:
         clustering = AffinityPropagation().fit(word_embeddings)
     labels = clustering.labels_
-    counts = Counter(labels)
-    #print("Aff prop num of clusters:", len(counts))
     exemplars = clustering.cluster_centers_
     return labels, exemplars
 
 
-def add_embedding_to_list(previous, word_emb):
+def add_embedding_to_list_clustering(previous, word_emb, clustering):
     embeds = [x[0] / x[1] for x in previous]
     treshold = 200
-    #k = int(treshold/3)
+    k = int(treshold/3)
     if len(previous) < treshold:
         previous.append((word_emb, 1))
     else:
-        _, centroids = cluster_word_embeddings_aff_prop(embeds)
+        if clustering == 'aff_prop':
+            _, centroids = cluster_word_embeddings_aff_prop(embeds)
+        elif clustering == 'kmeans':
+            cluster_word_embeddings_k_means(embeds, k)
         #print(centroids.shape)
         previous = []
         for c in centroids:
             previous.append((c, 1))
         previous.append((word_emb, 1))
-    return previous, 1'''
+    return previous, 1
 
 
 def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang, task):
@@ -269,7 +270,7 @@ def get_token_embeddings(batches, model, batch_size):
     return encoder_token_embeddings, tokenized_text
 
 
-def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, task):
+def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, task, scale_method):
     vocab_vectors = {}
     count2sents = {}
 
@@ -360,7 +361,10 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
                                     #print("In vocab: ", token_i + '_' + period, list(vocab_vectors.keys()))
                                     if period in vocab_vectors[token_i]:
                                         previous = vocab_vectors[token_i][period]
-                                        new, new_idx = add_embedding_to_list(previous, encoder_array.squeeze())
+                                        if scale_method=='average':
+                                            new, new_idx = add_embedding_to_list(previous, encoder_array.squeeze())
+                                        else:
+                                            new, new_idx = add_embedding_to_list_clustering(previous, encoder_array.squeeze(), scale_method)
                                         vocab_vectors[token_i][period] = new
                                         sent_tokens.append((token_i, new_idx))
                                     else:
@@ -386,7 +390,10 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
                                     #print("S In vocab: ", stoken_i + '_' + period, list(vocab_vectors.keys()))
                                     if period in vocab_vectors[stoken_i]:
                                         previous = vocab_vectors[stoken_i][period]
-                                        new, new_idx = add_embedding_to_list(previous, encoder_sarray.squeeze())
+                                        if scale_method == 'average':
+                                            new, new_idx = add_embedding_to_list(previous, encoder_sarray.squeeze())
+                                        else:
+                                            new, new_idx = add_embedding_to_list_clustering(previous, encoder_array.squeeze(), scale_method)
                                         vocab_vectors[stoken_i][period] = new
                                         sent_tokens.append((stoken_i, new_idx))
                                     else:
@@ -430,7 +437,10 @@ def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size
 
 
 if __name__ == '__main__':
-    task = 'syntetic'
+    task = 'coha'
+    lang = 'English'
+    #scale method can be 'average', 'aff_prop' or 'kmeans'
+    scale_method = 'aff_prop'
     batch_size = 16
     max_length = 256
 
@@ -438,7 +448,7 @@ if __name__ == '__main__':
         datasets = ['data/coha/coha_1960.txt',
                     'data/coha/coha_1990.txt', ]
         state_dict = torch.load("models/model_coha_epoch_5/checkpoint-69350/pytorch_model.bin")
-        embeddings_path = 'embeddings/coha_5_yearly_fine_tuned.pickle'
+        embeddings_path = 'embeddings/coha_5_yearly_fine_tuned_aff_prop.pickle'
         shifts_dict = get_shifts('data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv')
     elif task=='aylien':
         '''datasets = ['data/aylien/aylien_january_balanced.txt',
@@ -478,8 +488,7 @@ if __name__ == '__main__':
     model.eval()
 
     #print(shifts_dict.items())
-    lang = 'English'
-    get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, shifts_dict, task)
+    get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, shifts_dict, task, scale_method)
 
 
 
