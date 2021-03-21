@@ -7,6 +7,8 @@ import re
 from collections import defaultdict
 from tokenizers import (BertWordPieceTokenizer)
 from sklearn.metrics.pairwise import cosine_similarity
+import sys
+import argparse
 
 
 def remove_mentions(text, replace_token):
@@ -20,8 +22,6 @@ def chunks(l, n):
 
 
 def get_targets(input_path, lang, tokenizer):
-    if lang == 'swedish_multi':
-        input_path = 'data/semeval_data/swedish/targets.txt'
     targets_dict = {}
     with open(input_path, 'r', encoding='utf8') as f:
         for line in f:
@@ -29,8 +29,6 @@ def get_targets(input_path, lang, tokenizer):
             if lang=='english':
                 target_no_pos = target[:-3]
                 targets_dict[target_no_pos] = target
-            elif lang=='swedish_multi':
-                targets_dict["".join(tokenizer.tokenize(target)).replace('##', '')] = target
             else:
                 targets_dict[target] = target
     return targets_dict
@@ -58,11 +56,7 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
     batch_counter = 0
 
     frequencies = defaultdict(int)
-
-    if lang == 'swedish_multi':
-        target_words = list(target_words.values())
-    else:
-        target_words = list(target_words.keys())
+    target_words = list(target_words.keys())
 
     print('Dataset: ', ds)
     counter = 0
@@ -130,7 +124,7 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
     return batches, count2sent, sent2count
 
 
-def get_token_embeddings(batches, model, batch_size):
+def get_token_embeddings(batches, model, batch_size, gpu):
 
     encoder_token_embeddings = []
     tokenized_text = []
@@ -142,8 +136,12 @@ def get_token_embeddings(batches, model, batch_size):
             print('Generating embedding for batch: ', counter)
         lens = [len(x[0]) for x in batch]
         max_len = max(lens)
-        tokens_tensor = torch.zeros(batch_size, max_len, dtype=torch.long).cuda()
-        segments_tensors = torch.ones(batch_size, max_len, dtype=torch.long).cuda()
+        if gpu:
+            tokens_tensor = torch.zeros(batch_size, max_len, dtype=torch.long).cuda()
+            segments_tensors = torch.ones(batch_size, max_len, dtype=torch.long).cuda()
+        else:
+            tokens_tensor = torch.zeros(batch_size, max_len, dtype=torch.long)
+            segments_tensors = torch.ones(batch_size, max_len, dtype=torch.long)
         batch_idx = [x[0] for x in batch]
         batch_tokens = [x[1] for x in batch]
 
@@ -152,9 +150,6 @@ def get_token_embeddings(batches, model, batch_size):
             for j in range(max_len):
                 if j < length:
                     tokens_tensor[i][j] = batch_idx[i][j]
-
-        #print("Input shape: ", tokens_tensor.shape)
-        #print(tokens_tensor)
 
         # Predict hidden states features for each layer
         with torch.no_grad():
@@ -165,7 +160,6 @@ def get_token_embeddings(batches, model, batch_size):
         for batch_i in range(batch_size):
             encoder_token_embeddings_example = []
             tokenized_text_example = []
-
 
             # For each token in the sentence...
             for token_i in range(len(batch_tokens[batch_i])):
@@ -196,7 +190,7 @@ def get_token_embeddings(batches, model, batch_size):
     return encoder_token_embeddings, tokenized_text
 
 
-def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, concat=False):
+def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, concat=False, gpu=True):
     vocab_vectors = {}
     count2sents = {}
 
@@ -217,7 +211,7 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
             print('Chunk ', num_chunk)
 
             #get list of embeddings and list of bpe tokens
-            encoder_token_embeddings, tokenized_text = get_token_embeddings(batches, model, batch_size)
+            encoder_token_embeddings, tokenized_text = get_token_embeddings(batches, model, batch_size, gpu)
 
             splitted_tokens = []
             if not concat:
@@ -333,16 +327,6 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
             del batches
             gc.collect()
 
-            '''for k, v in vocab_vectors.items():
-                print(k)
-                input = v[0]
-                encoder = v[1]
-                context = v[2]
-                print(len(input))
-                print(len(encoder))
-                print(len(context))
-                print(context[0])'''
-
         print('Sentence embeddings generated.')
 
     print("Length of vocab after training: ", len(vocab_vectors.items()))
@@ -354,115 +338,80 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
 
 
 if __name__ == '__main__':
-    batch_size = 8
-    max_length = 256
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--corpus_paths",
+                        default='data/english/english_preprocessed_1.txt;data/english/english_preprocessed_2.txt',
+                        type=str,
+                        help="Paths to all corpus time slices separated by ';'.")
+    parser.add_argument("--target_path", default='data/english/targets.txt', type=str,
+                        help="Path to target file")
+    parser.add_argument("--language", default='english', const='all', nargs='?',
+                        help="Choose a language", choices=['english', 'latin', 'swedish', 'german'])
+    parser.add_argument("--batch_size", default=8, type=int, help="Batch size.")
+    parser.add_argument("--max_sequence_length", default=256, type=int)
+    parser.add_argument("--gpu", action="store_true", help="Use gpu.")
+    parser.add_argument("--concat", action="store_true",
+                        help="Concat byte pairs to derive embedding for entire word. If False, byte pairs are averaged.")
+    parser.add_argument("--path_to_fine_tuned_model", default='', type=str,
+                        help="Path to fine-tuned model. If empty, pretrained model is used")
+    parser.add_argument("--embeddings_path", default='embeddings_english.pickle', type=str,
+                        help="Path to output pickle file containing embeddings.")
+    parser.add_argument("--swedish_vocab_path", default="data/swedish/vocab_swebert.txt", type=str,
+                        help="Path to vocabulary for Swedish tokenizer. It is only needed if you want to fine-tune the Swedish model")
+    args = parser.parse_args()
 
-    data_folder = 'data/semeval_data/'
+    batch_size = args.batch_size
+    max_length = args.max_sequence_length
+    concat = args.concat
+    lang = args.language
+    languages = ['english', 'latin', 'swedish', 'german']
+    if lang not in languages:
+        print("Language not valid, valid choices are: ", ", ".join(languages))
+        sys.exit()
+    datasets = args.corpus_paths.split(';')
+    if len(args.path_to_fine_tuned_model) > 0:
+        fine_tuned = True
+    else:
+        fine_tuned = False
 
-    langs = ['swedish', 'english', 'german', 'latin']
-    concats = [False]
-    fine_tuned = True
+    if lang == 'swedish':
+        tokenizer = BertWordPieceTokenizer(args.swedish_vocab_path, lowercase=True, strip_accents=False)
+        if fine_tuned:
+            state_dict = torch.load(args.path_to_fine_tuned_model)
+            model = BertModel.from_pretrained('af-ai-center/bert-base-swedish-uncased', state_dict=state_dict,
+                                              output_hidden_states=True)
+        else:
+            model = BertModel.from_pretrained('af-ai-center/bert-base-swedish-uncased', output_hidden_states=True)
+    elif lang == 'german':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased')
+        if fine_tuned:
+            state_dict = torch.load(args.path_to_fine_tuned_model)
+            model = BertModel.from_pretrained('bert-base-german-cased', state_dict=state_dict,
+                                              output_hidden_states=True)
+        else:
+            model = BertModel.from_pretrained('bert-base-german-cased', output_hidden_states=True)
+    elif lang == 'english':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+        if fine_tuned:
+            state_dict = torch.load(args.path_to_fine_tuned_model)
+            model = BertModel.from_pretrained('bert-base-uncased', state_dict=state_dict, output_hidden_states=True)
+        else:
+            model = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)
 
-    for lang in langs:
-        for concat in concats:
-            if lang in ['latin', 'english']:
-                datasets = [data_folder + lang + '/' + lang + '_clean_1.txt',
-                            data_folder + lang + '/' + lang + '_clean_2.txt',]
-            elif lang == 'swedish_multi':
-                datasets = [data_folder + 'swedish/swedish_1.txt',
-                            data_folder + 'swedish/swedish_2.txt', ]
-            else:
-                datasets = [data_folder + lang + '/' + lang + '_1.txt',
-                            data_folder + lang + '/' + lang + '_2.txt', ]
+    elif lang == 'latin':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-uncased', do_lower_case=True)
+        if fine_tuned:
+            state_dict = torch.load(args.path_to_fine_tuned_model)
+            model = BertModel.from_pretrained('bert-base-multilingual-uncased', state_dict=state_dict,
+                                              output_hidden_states=True)
+        else:
+            model = BertModel.from_pretrained('bert-base-multilingual-uncased', output_hidden_states=True)
+    if args.gpu:
+        model.cuda()
+    model.eval()
 
+    target_dict = get_targets(args.target_path, lang)
+    get_time_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict=target_dict, concat=concat, gpu=args.gpu)
 
-            if lang == 'swedish':
-                tokenizer = BertWordPieceTokenizer("data/semeval_data/swedish/vocab_swebert.txt", lowercase=True, strip_accents=False)
-                if fine_tuned:
-                    state_dict = torch.load("models/model_swedish/epoch_5/pytorch_model.bin")
-                    model = BertModel.from_pretrained('af-ai-center/bert-base-swedish-uncased', state_dict=state_dict, output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/swedish_5_epochs_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/swedish_5_epochs_scalable.pickle'
-                else:
-                    model = BertModel.from_pretrained('af-ai-center/bert-base-swedish-uncased', output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/swedish_pretrained_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/swedish_pretrained_scalable.pickle'
-            elif lang == 'german':
-                tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased')
-                if fine_tuned:
-                    state_dict = torch.load("models/model_german_cased/epoch_5/pytorch_model.bin")
-                    model = BertModel.from_pretrained('bert-base-german-cased', state_dict=state_dict, output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/german_5_epochs_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/german_5_epochs_scalable.pickle'
-                else:
-                    model = BertModel.from_pretrained('bert-base-german-cased', output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/german_pretrained_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/german_pretrained_scalable.pickle'
-
-            elif lang == 'english':
-                tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-                if fine_tuned:
-                    state_dict = torch.load("models/model_english_epoch_8/epoch_5/pytorch_model.bin")
-                    model = BertModel.from_pretrained('bert-base-uncased', state_dict=state_dict, output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/english_5_epochs_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/english_5_epochs_scalable.pickle'
-                else:
-                    model = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/english_pretrained_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/english_pretrained_scalable.pickle'
-
-            elif lang == 'latin':
-                tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-uncased', do_lower_case=True)
-                if fine_tuned:
-                    state_dict = torch.load("models/model_latin/epoch_5/pytorch_model.bin")
-                    model = BertModel.from_pretrained('bert-base-multilingual-uncased', state_dict=state_dict, output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/latin_5_epochs_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/latin_5_epochs_scalable.pickle'
-                else:
-                    model = BertModel.from_pretrained('bert-base-multilingual-uncased', output_hidden_states=True)
-                    if concat:
-                        embeddings_path = 'embeddings/latin_pretrained_concat_scalable.pickle'
-                    else:
-                        embeddings_path = 'embeddings/latin_pretrained_scalable.pickle'
-
-            elif lang == 'swedish_multi':
-               tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-uncased', do_lower_case=True)
-               if fine_tuned:
-                   state_dict = torch.load("models/model_swedish_multilingual/pytorch_model.bin")
-                   model = BertModel.from_pretrained('bert-base-multilingual-uncased', state_dict=state_dict, output_hidden_states=True)
-                   if concat:
-                       embeddings_path = 'embeddings/swedish_multi_concat_scalable.pickle'
-                   else:
-                       embeddings_path = 'embeddings/swedish_multi_scalable.pickle'
-               else:
-                   model = BertModel.from_pretrained('bert-base-multilingual-uncased', output_hidden_states=True)
-                   if concat:
-                       embeddings_path = 'embeddings/swedish_multi_pretrained_concat_scalable.pickle'
-                   else:
-                       embeddings_path = 'embeddings/swedish_multi_pretrained_scalable.pickle'
-
-            model.cuda()
-            model.eval()
-
-            target_dict = get_targets(data_folder + lang + '/targets.txt', lang, tokenizer)
-
-
-            print(target_dict)
-
-            get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict=target_dict, concat=concat)
 
 
