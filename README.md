@@ -1,4 +1,4 @@
-# Semeval_2020_Task_1
+# Scalable and Interpretable Semantic Change Detection
 
 Official repository for paper "Scalable and Interpretable Semantic Change Detection" published in Proceedings of NAACL 2021. Published results were produced in Python 3 programming environment on Linux Mint 18 Cinnamon operating system. Instructions for installation assume the usage of PyPI package manager.<br/>
 
