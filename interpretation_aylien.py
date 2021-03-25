@@ -6,8 +6,6 @@ import pickle
 import random
 from scipy import sparse
 import argparse
-import itertools
-from scipy.io import savemat, loadmat
 import spacy
 spacy_nlp = spacy.load('en_core_web_sm')
 # python -m spacy download en
@@ -15,21 +13,14 @@ nlp = spacy.load('en')
 import nltk
 import glob
 import gensim
-from gensim.utils import simple_preprocess
 import os, re
-from nltk.stem.snowball import FrenchStemmer
 from nltk.corpus import stopwords
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
-import time
-from scipy.stats import entropy
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfTransformer
-from gensim.corpora.dictionary import Dictionary
-from gensim.models.coherencemodel import CoherenceModel
-from gensim.models import KeyedVectors
-import gensim.downloader as api
 import subprocess
+
 
 # import evaluation measures
 from evaluation_scripts.evaluate_clustering_keywords import *
@@ -172,7 +163,7 @@ def extract_keywords(word_clustered_data, max_df, topn, lemmatisation):
     stop = set(stop1 + stop2)
     #print(len(stop1), len(stop2), len(stop))
     
-    cv=CountVectorizer(max_df = max_df, stop_words=stop, max_features=10000) 
+    cv=CountVectorizer(max_df = max_df, stop_words=stop, max_features=10000, ngram_range=(1,2)) 
     # max_df ignore all words that have appeared in X % of the documents
     # max_features is the vocab size
     labels, clusters = list(sent_clust_dict.keys()), list(sent_clust_dict.values())
@@ -215,7 +206,6 @@ def full_analysis(word, max_df = 0.8 , topn=15, method = "kmeans_5", lemmatisati
     for k in keyword_clusters:
         print(k)
         print(list(keyword_clusters[k].keys()))
-    #evaluate_clustering(keyword_clusters, sentences_clusters)
     return keyword_clusters
 
 
