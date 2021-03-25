@@ -69,10 +69,10 @@ This creates a pickled file containing all contextual embeddings for all target 
 Conduct clustering and measure semantic shift with various methods:<br/>
 
 ```
-python measure_semantic_shift.py --task corpusToAnalyse --corpus_slices_type nameOfCopusSlices --emb_path pathToInputEmbeddingFile --results_path pathToOutputResultsDir
+python measure_semantic_shift.py --task corpusToAnalyse --corpus_slices_type nameOfCopusSlices --emb_path pathToInputEmbeddingFile --results_path pathToOutputResultsDir --method JSD_or_WD
 ```
 
-This script takes the pickled embedding file as an input and creates several files, a csv file containing scores for all semantic change methods for each target word (from the full vocabulary or from a pre-defined list), files containing cluster labels for each embedding , files containing cluster centroids and a file containing context (sentence) mapped to each embedding (optionally).<br/>
+This script takes the pickled embedding file as an input and creates several files, a csv file containing semantic change scores for each target word (from the full vocabulary or from a pre-defined list) using either Wasserstein distance or Jensen-Shannon divergence, files containing cluster labels for each embedding , files containing cluster centroids and a file containing context (sentence) mapped to each embedding (optionally).<br/>
 
 Extract keywords and plot clusters distribution for interpretation:<br/>
 
