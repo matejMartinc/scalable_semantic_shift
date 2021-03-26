@@ -1,6 +1,7 @@
 import pickle
 import pandas as pd
 import argparse
+from scipy.spatial.distance import cdist
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import AffinityPropagation
 from sklearn.cluster import KMeans
@@ -109,6 +110,7 @@ def compute_wasserstein_distance(labels1, labels2, emb1, emb2, name):
     emb1_means = np.array([np.mean(emb1[labels1 == clust], 0) for clust in n_senses])
     emb2_means = np.array([np.mean(emb2[labels2 == clust], 0) for clust in n_senses])
     M = np.nan_to_num(np.array([cdist(emb1_means, emb2_means, metric = 'cosine')])[0], nan = 1)
+    wass = ot.emd2(t1_dist, t2_dist, M)
     print("clustering WD", name+':', wass)
     return wass
 
@@ -149,14 +151,14 @@ def compute_divergence_across_many_periods(embeddings_concat, labels, splits, co
             if method == 'JSD':
                 dist = compute_jsd_from_cluster_labels(all_clusters[i],all_clusters[i+1], name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
             elif method == 'WD':
-                dist = compute_wasserstein_distance(all_clusters[i],all_clusters[i+1],all_embs[i],all_embs[i+1], name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
+                dist = compute_wasserstein_distance(np.array(all_clusters[i]), np.array(all_clusters[i+1]), np.array(all_embs[i]), np.array(all_embs[i+1]), name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
             meaning = detect_meaning_gain_and_loss(all_clusters[i],all_clusters[i+1], name + ' slice ' + str(i + 1) + ' and ' + str(i + 2))
             all_meanings.append(meaning)
             all_measures.append(dist)
     if method == 'JSD':
         entire_measure = compute_jsd_from_cluster_labels(all_clusters[0],all_clusters[-1], name + " First and last slice")
     elif method == 'WD':
-        entire_measure = compute_wasserstein_distance(all_clusters[0],all_clusters[-1],all_embs[0],all_embs[-1], name + " First and last slice")
+        entire_measure = compute_wasserstein_distance(np.array(all_clusters[0]), np.array(all_clusters[-1]), np.array(all_embs[0]), np.array(all_embs[-1]), name + " First and last slice")
     meaning = detect_meaning_gain_and_loss(all_clusters[0],all_clusters[-1], name + " First and last slice")
     all_meanings.append(meaning)
 
@@ -255,11 +257,6 @@ if __name__ == '__main__':
             if len(target_words) == 0:# or len(target_words) > 10:
                 target_words = list(bert_embeddings.keys())
 
-            jsd_vec = []
-            cosine_dist_vec = []
-            results_dict = {"word": [], "aff_prop": [], "kmeans_5": [], "kmeans_7": [], "averaging": [],
-                            "aff_prop_clusters": []}
-
             sentence_dict = {}
 
             aff_prop_labels_dict = {}
@@ -354,13 +351,13 @@ if __name__ == '__main__':
                     #print(word_results)
                 else:
                     aff_prop_labels, aff_prop_centroids = cluster_word_embeddings_aff_prop(embeddings_concat)
-                    all_aff_prop_jsds, all_meanings, clustered_aff_prop_labels = compute_divergence_across_many_periods(embeddings_concat, aff_prop_labels, splits, corpus_slices, 'AFF PROP', method)
+                    all_aff_prop_measures, all_meanings, clustered_aff_prop_labels = compute_divergence_across_many_periods(embeddings_concat, aff_prop_labels, splits, corpus_slices, 'AFF PROP', method)
                     kmeans_5_labels, kmeans_5_centroids = cluster_word_embeddings_k_means(embeddings_concat, 5, random_state)
-                    all_kmeans5_jsds, all_meanings, clustered_kmeans_5_labels = compute_divergence_across_many_periods(embeddings_concat, kmeans_5_labels, splits, corpus_slices, 'KMEANS 5', method)
+                    all_kmeans5_measures, all_meanings, clustered_kmeans_5_labels = compute_divergence_across_many_periods(embeddings_concat, kmeans_5_labels, splits, corpus_slices, 'KMEANS 5', method)
                     kmeans_7_labels, kmeans_7_centroids = cluster_word_embeddings_k_means(embeddings_concat, 7, random_state)
-                    all_kmeans7_jsds, all_meanings, clustered_kmeans_7_labels = compute_divergence_across_many_periods(embeddings_concat, kmeans_7_labels, splits, corpus_slices, 'KMEANS 7', method)
+                    all_kmeans7_measures, all_meanings, clustered_kmeans_7_labels = compute_divergence_across_many_periods(embeddings_concat, kmeans_7_labels, splits, corpus_slices, 'KMEANS 7', method)
                     all_freqs = all_freqs + [sum(all_freqs)] + [sum(all_freqs)/len(all_freqs)]
-                    word_results = [word] +  all_aff_prop_jsds + all_kmeans5_jsds + all_kmeans7_jsds + all_freqs + all_meanings
+                    word_results = [word] +  all_aff_prop_measures + all_kmeans5_measures + all_kmeans7_measures + all_freqs + all_meanings
 
                 results.append(word_results)
 
@@ -379,16 +376,16 @@ if __name__ == '__main__':
             columns = ['word']
             clust_list = [' AP', ' K5', ' K7']
             methods =[ method + clust for clust in clust_list]+ ['FREQ', 'MEANING GAIN/LOSS']
-            for method in methods:
+            for m in methods:
                 for num_slice, cs in enumerate(corpus_slices):
-                    if method == 'FREQ':
+                    if m == 'FREQ':
                         columns.append(method + ' ' + cs)
                     else:
                         if num_slice < len(corpus_slices) - 1:
-                            columns.append(method + ' ' + cs + '-' + corpus_slices[num_slice + 1])
-                columns.append(method + ' All')
-                if method != 'MEANING GAIN/LOSS':
-                    columns.append(method + ' Avg')
+                            columns.append(m + ' ' + cs + '-' + corpus_slices[num_slice + 1])
+                columns.append(m + ' All')
+                if m != 'MEANING GAIN/LOSS':
+                    columns.append(m + ' Avg')
 
 
             if not os.path.exists(results_dir):
@@ -399,7 +396,6 @@ if __name__ == '__main__':
 
             # save results to CSV
             results_df = pd.DataFrame(results, columns=columns)
-            results_df = results_df.sort_values(by=[method + ' K5 Avg'], ascending=False)
             results_df.to_csv(csv_file, sep=';', encoding='utf-8', index=False)
 
             print("Done! Saved results in", csv_file, "!")
@@ -413,8 +409,8 @@ if __name__ == '__main__':
                          (sentence_dict, "sents")]
 
                 for data, name in dicts:
-                    data_file = os.path.join(results_dir, name + "_" + lang + "_" + emb_type + ".pkl")
-                    centroids_file = results_dir + "aff_prop_centroids_" + lang + "_" + emb_type + ".pkl"
+                    data_file = os.path.join(results_dir, name + "_" + lang + "_" + emb_type +"_" + method + "_" + emb_type + ".pkl")
+                    centroids_file = results_dir + "aff_prop_centroids_" + lang + "_" + emb_type +"_" + method + ".pkl"
                     pf = open(data_file, 'wb')
                     pickle.dump(data, pf)
                     pf.close()
