@@ -190,7 +190,7 @@ def get_token_embeddings(batches, model, batch_size, gpu):
     return encoder_token_embeddings, tokenized_text
 
 
-def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, concat=False, gpu=True):
+def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, gpu=True):
     vocab_vectors = {}
     count2sents = {}
 
@@ -214,10 +214,7 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
             encoder_token_embeddings, tokenized_text = get_token_embeddings(batches, model, batch_size, gpu)
 
             splitted_tokens = []
-            if not concat:
-                encoder_splitted_array = np.zeros((1, 768))
-            else:
-                encoder_splitted_array = []
+            encoder_splitted_array = np.zeros((1, 768))
             prev_token = ""
             encoder_prev_array = np.zeros((1, 768))
             sent_tokens = []
@@ -256,18 +253,11 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
                         if prev_token:
                             splitted_tokens.append(prev_token)
                             prev_token = ""
-                            if not concat:
-                                encoder_splitted_array = encoder_prev_array
-                            else:
-                                encoder_splitted_array.append(encoder_prev_array)
-
+                            encoder_splitted_array = encoder_prev_array
 
                         #add word to splitted tokens array and add its embedding to splitted_array
                         splitted_tokens.append(token_i)
-                        if not concat:
-                            encoder_splitted_array += encoder_array
-                        else:
-                            encoder_splitted_array.append(encoder_array)
+                        encoder_splitted_array += encoder_array
 
                     #word is not split into parts
                     else:
@@ -291,10 +281,7 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
                                     sent_tokens.append((target_dict[token_i], 0))
                         #check if there are words in splitted tokens array, calculate average embedding and add the word to the vocabulary
                         if splitted_tokens:
-                            if not concat:
-                                encoder_sarray = encoder_splitted_array / len(splitted_tokens)
-                            else:
-                                encoder_sarray = np.concatenate(encoder_splitted_array, axis=1)
+                            encoder_sarray = encoder_splitted_array / len(splitted_tokens)
                             stoken_i = "".join(splitted_tokens).replace('##', '')
 
                             if stoken_i in targets:
@@ -314,10 +301,7 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
                                     vocab_vectors[target_dict[stoken_i]] = {period: [(encoder_sarray.squeeze(), 1)], period + '_text': {}}
                                     sent_tokens.append((target_dict[stoken_i], 0))
                             splitted_tokens = []
-                            if not concat:
-                                encoder_splitted_array = np.zeros((1, 768))
-                            else:
-                                encoder_splitted_array = []
+                            encoder_splitted_array = np.zeros((1, 768))
 
                         encoder_prev_array = encoder_array
                         prev_token = token_i
@@ -350,8 +334,6 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=8, type=int, help="Batch size.")
     parser.add_argument("--max_sequence_length", default=256, type=int)
     parser.add_argument("--gpu", action="store_true", help="Use gpu.")
-    parser.add_argument("--concat", action="store_true",
-                        help="Concat byte pairs to derive embedding for entire word. If False, byte pairs are averaged.")
     parser.add_argument("--path_to_fine_tuned_model", default='', type=str,
                         help="Path to fine-tuned model. If empty, pretrained model is used")
     parser.add_argument("--embeddings_path", default='embeddings_english.pickle', type=str,
@@ -362,7 +344,6 @@ if __name__ == '__main__':
 
     batch_size = args.batch_size
     max_length = args.max_sequence_length
-    concat = args.concat
     lang = args.language
     languages = ['english', 'latin', 'swedish', 'german']
     if lang not in languages:
@@ -411,7 +392,7 @@ if __name__ == '__main__':
     model.eval()
 
     target_dict = get_targets(args.target_path, lang)
-    get_time_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict=target_dict, concat=concat, gpu=args.gpu)
+    get_time_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict=target_dict, gpu=args.gpu)
 
 
 

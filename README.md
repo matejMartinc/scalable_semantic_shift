@@ -56,10 +56,16 @@ For '--model_name_or_path' parameter, see the paper for info about which models 
 
 #### Extract BERT embeddings:<br/>
 
-Extract embeddings from the preprocessed corpus in .txt format:<br/>
+Extract embeddings from the preprocessed corpus in .txt for one of the corpora from the SemEval semantic change competiton:<br/>
 
 ```
-python extract_embeddings.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language language --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile --concat 
+python get_embeddings_scalable_semeval.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language language --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile
+```
+
+Extract embeddings from the preprocessed corpus in .txt for COHA, DURel or Aylien corpus:<br/>
+
+```
+python get_embeddings_scalable.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --target_path pathToTargetFile --task chooseBetween'coha','durel','aylien' --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile
 ```
 
 This creates a pickled file containing all contextual embeddings for all target words.<br/>
