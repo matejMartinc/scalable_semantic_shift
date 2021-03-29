@@ -205,12 +205,11 @@ def get_token_embeddings(batches, model, batch_size, gpu):
     return encoder_token_embeddings, tokenized_text
 
 
-def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, task, gpu=True):
+def get_slice_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, task, slices, gpu=True):
     vocab_vectors = {}
     count2sents = {}
 
-    for ds_idx, ds in enumerate(datasets):
-        period = ds.split('/')[-1].split('_')[1].split('.')[0]
+    for ds_idx, (ds, period) in enumerate(zip(datasets, slices)):
         all_batches, count2sent, sent2count, sent2target_sense = tokens_to_batches(ds, tokenizer, batch_size,
                                                                                    max_length, target_dict, lang, task)
 
@@ -343,6 +342,10 @@ if __name__ == '__main__':
                         default='data/coha/coha_1960.txt;data/coha/coha_1990.txt',
                         type=str,
                         help="Paths to all corpus time slices separated by ';'.")
+    parser.add_argument("--corpus_slices_names",
+                        default='1960;1990',
+                        type=str,
+                        help="Time slices names separated by ';'. The number should correspond to number of corpus slices paths.")
     parser.add_argument("--target_path", default='data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv', type=str,
                         help="Path to target file")
     parser.add_argument("--task", default='coha', const='all', nargs='?',
@@ -358,6 +361,7 @@ if __name__ == '__main__':
 
     batch_size = args.batch_size
     max_length = args.max_sequence_length
+    slices = args.corpus_slices_names.split(';')
 
     task = args.task
     tasks = ['coha', 'aylien', 'durel']
@@ -406,7 +410,7 @@ if __name__ == '__main__':
         model.cuda()
     model.eval()
 
-    get_slice_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, shifts_dict, task, gpu=args.gpu)
+    get_slice_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, shifts_dict, task, slices, gpu=args.gpu)
 
 
 

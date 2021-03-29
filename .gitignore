@@ -5,5 +5,5 @@ runs
 embeddings*
 results*
 models
-coha_results
+results_coha
 data

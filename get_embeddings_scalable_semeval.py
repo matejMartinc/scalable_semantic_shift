@@ -21,7 +21,7 @@ def chunks(l, n):
         yield l[i:i + n]
 
 
-def get_targets(input_path, lang, tokenizer):
+def get_targets(input_path, lang):
     targets_dict = {}
     with open(input_path, 'r', encoding='utf8') as f:
         for line in f:
@@ -190,13 +190,11 @@ def get_token_embeddings(batches, model, batch_size, gpu):
     return encoder_token_embeddings, tokenized_text
 
 
-def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, gpu=True):
+def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, slices, gpu=True):
     vocab_vectors = {}
     count2sents = {}
 
-    for ds in datasets:
-
-        period = ds[-5:-4]
+    for ds, period in zip(datasets, slices):
 
         all_batches, count2sent, sent2count = tokens_to_batches(ds, tokenizer, batch_size, max_length, target_dict, lang)
 
@@ -327,6 +325,10 @@ if __name__ == '__main__':
                         default='data/english/english_preprocessed_1.txt;data/english/english_preprocessed_2.txt',
                         type=str,
                         help="Paths to all corpus time slices separated by ';'.")
+    parser.add_argument("--corpus_slices_names",
+                        default='1;2',
+                        type=str,
+                        help="Time slices names separated by ';'. The number should correspond to number of corpus slices paths.")
     parser.add_argument("--target_path", default='data/english/targets.txt', type=str,
                         help="Path to target file")
     parser.add_argument("--language", default='english', const='all', nargs='?',
@@ -346,6 +348,7 @@ if __name__ == '__main__':
     max_length = args.max_sequence_length
     lang = args.language
     languages = ['english', 'latin', 'swedish', 'german']
+    slices = args.corpus_slices_names.split(';')
     if lang not in languages:
         print("Language not valid, valid choices are: ", ", ".join(languages))
         sys.exit()
@@ -392,7 +395,7 @@ if __name__ == '__main__':
     model.eval()
 
     target_dict = get_targets(args.target_path, lang)
-    get_time_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict=target_dict, gpu=args.gpu)
+    get_time_embeddings(args.embeddings_path, datasets, tokenizer, model, batch_size, max_length, lang, target_dict, slices, gpu=args.gpu)
 
 
 
