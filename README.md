@@ -1,4 +1,4 @@
-# Semeval_2020_Task_1
+# Scalable and Interpretable Semantic Change Detection
 
 Official repository for paper "Scalable and Interpretable Semantic Change Detection" published in Proceedings of NAACL 2021. Published results were produced in Python 3 programming environment on Linux Mint 18 Cinnamon operating system. Instructions for installation assume the usage of PyPI package manager.<br/>
 
@@ -72,13 +72,22 @@ This creates a pickled file containing all contextual embeddings for all target 
 
 #### Get results:<br/>
 
-Conduct clustering and measure semantic shift with JSD:<br/>
+Conduct clustering and measure semantic shift with various methods:<br/>
 
 ```
-python calculate_semantic_change.py --language language --embeddings_path pathToInputEmbeddingFile --semeval_results pathToOutputResultsDir
+python measure_semantic_shift.py --task corpusToAnalyse --corpus_slices_type nameOfCopusSlices --emb_path pathToInputEmbeddingFile --results_path pathToOutputResultsDir --method JSD_or_WD
 ```
 
-This script takes the pickled embedding file as an input and creates several files, a csv file containing JSD scores for all clustering methods for each target word, files containing cluster labels for each embedding , files containing cluster centroids and a file containing context (sentence) mapped to each embedding.<br/>
+This script takes the pickled embedding file as an input and creates several files, a csv file containing semantic change scores for each target word (from the full vocabulary or from a pre-defined list) using either Wasserstein distance or Jensen-Shannon divergence, files containing cluster labels for each embedding , files containing cluster centroids and a file containing context (sentence) mapped to each embedding (optionally).<br/>
+
+Extract keywords and plot clusters distribution for interpretation:<br/>
+
+```
+python interpretation_aylien.py  --emb_path pathToInputEmbeddingFile --res_path PathToClusteringResults --save_path PathToSaveClusters
+```
+
+This script takes the pickled embedding file and the result file (csv) from the previous step. It automatically selects a set of target words among the most drifting ones (but you can also define your own target list), performs clustering (using measure_semantic_shift.py), extracts keywords for each cluster, and plots the cluster distribution on each corpus slice.
+
 
 Generate SemEval submission files for task 1 (binary classification using stopword tresholding method) and task 2 (ranking) using a specific clustering method:<br/>
 
