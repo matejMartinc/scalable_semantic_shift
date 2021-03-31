@@ -209,8 +209,8 @@ def compute_divergence_across_many_periods(embeddings, labels, splits, corpus_sl
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Measure semantic shift')
-    parser.add_argument("--method", default='WS', const='all', nargs='?',
-                        help="A method for calculating distance", choices=['WS', 'JSD'])
+    parser.add_argument("--method", default='WD', const='all', nargs='?',
+                        help="A method for calculating distance", choices=['WD', 'JSD'])
     parser.add_argument("--corpus_slices",
                         default='1960;1990',
                         type=str,
@@ -226,19 +226,12 @@ if __name__ == '__main__':
     threshold = args.cluster_size_threshold
     get_additional_info = args.get_additional_info
     embeddings_file = args.embeddings_path
-    corpus_slices = args.corpus_slices_names
-    if len(args.define_words_to_interpret) > 0:
-        target_words = args.define_words_to_interpret.split(';')
-    else:
-        target_words = []
+    corpus_slices = args.corpus_slices
+
 
     methods = ['WD', 'JSD']
     if args.method not in methods:
         print("Method not valid, valid choices are: ", ", ".join(methods))
-        sys.exit()
-
-    if get_additional_info and len(target_words) == 0:
-        print('Define a list of words to interpret or set "get_additional_info" flag to False')
         sys.exit()
 
     print("Loading ", embeddings_file)
@@ -248,9 +241,14 @@ if __name__ == '__main__':
         bert_embeddings = pickle.load(open(embeddings_file, 'rb'))
         count2sents = None
 
-    #if no predefined list of target words
-    if len(target_words) == 0 or len(target_words) > 10:
+    if len(args.define_words_to_interpret) > 0:
+        target_words = args.define_words_to_interpret.split(';')
+    else:
         target_words = list(bert_embeddings.keys())
+
+    if get_additional_info and len(target_words) > 100:
+        print('Define a list of words to interpret with less than 100 words or set "get_additional_info" flag to False')
+        sys.exit()
 
     measure_vec = []
     cosine_dist_vec = []
