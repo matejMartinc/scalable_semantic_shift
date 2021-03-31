@@ -355,7 +355,7 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", action="store_true", help="Use gpu.")
     parser.add_argument("--path_to_fine_tuned_model", default='', type=str,
                         help="Path to fine-tuned model. If empty, pretrained model is used")
-    parser.add_argument("--embeddings_path", default='embeddings/coha_fine_tuned_scalable.pickle', type=str,
+    parser.add_argument("--embeddings_path", default='embeddings/coha_scalable.pickle', type=str,
                         help="Path to output pickle file containing embeddings.")
     args = parser.parse_args()
 

@@ -338,7 +338,7 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", action="store_true", help="Use gpu.")
     parser.add_argument("--path_to_fine_tuned_model", default='', type=str,
                         help="Path to fine-tuned model. If empty, pretrained model is used")
-    parser.add_argument("--embeddings_path", default='embeddings_english.pickle', type=str,
+    parser.add_argument("--embeddings_path", default='embeddings/embeddings_english.pickle', type=str,
                         help="Path to output pickle file containing embeddings.")
     parser.add_argument("--swedish_vocab_path", default="data/swedish/vocab_swebert.txt", type=str,
                         help="Path to vocabulary for Swedish tokenizer. It is only needed if you want to fine-tune the Swedish model")

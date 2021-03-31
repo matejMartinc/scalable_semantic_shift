@@ -174,7 +174,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Interpret changes')
     parser.add_argument('--target_word', type=str, default='diamond',
                         help='Target word to analyse')
-    parser.add_argument('--nb_target', type=int, default='5', help='Number of target words to select')
     parser.add_argument("--corpus_slices_names",
                         default="january;february;march;april",
                         type=str,
@@ -187,7 +186,6 @@ if __name__ == '__main__':
                         default="aylien_results/sents.pkl",
                         type=str,
                         help="Path to file with sentences")
-
 
     parser.add_argument('--max_df', type=float, default=0.8, help='Words that appear in more than that percentage of clusters will not be used as keywords.')
     parser.add_argument('--cluster_size_threshold', type=int, default=10, help='Clusters smaller than a threshold will be deleted.')

@@ -211,12 +211,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Measure semantic shift')
     parser.add_argument("--method", default='WS', const='all', nargs='?',
                         help="A method for calculating distance", choices=['WS', 'JSD'])
-    parser.add_argument("--corpus_slices_names",
+    parser.add_argument("--corpus_slices",
                         default='1960;1990',
                         type=str,
                         help="Time slices names separated by ';'.")
-    parser.add_argument('--get_additional_info', type=bool, default=False,
-                        help='Whether the cluster labels and sentences, required for interpretation, are saved or not.')
+    parser.add_argument("--get_additional_info", action="store_true", help='Whether the cluster labels and sentences, required for interpretation, are saved or not.')
     parser.add_argument('--results_dir_path', type=str, default='results_coha', help='Path to the folder to save the results.')
     parser.add_argument('--embeddings_path', type=str, default='embeddings/coha_fine_tuned_scalable.pickle', help='Path to the embeddings pickle file.')
     parser.add_argument('--define_words_to_interpret', type=str, default='', help='Define a set of words separated by ";" for interpretation if you do not wish to save data for all words.')
