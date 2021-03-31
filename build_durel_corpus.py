@@ -40,7 +40,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     input_files = args.input_files.split(';')
-    output_files = args.output_files.split(';')
 
     build_train_test(input_files, args.lm_output_train, args.lm_output_test)
+    print('Done, language model train and test sets written to:', args.lm_output_train, args.lm_output_test)
 

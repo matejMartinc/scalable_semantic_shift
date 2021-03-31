@@ -76,4 +76,5 @@ if __name__ == '__main__':
 
     output_train.close()
     output_test.close()
+    print('Done, language model train and test sets written to folder', output_folder)
 

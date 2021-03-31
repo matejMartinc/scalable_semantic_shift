@@ -46,7 +46,6 @@ if __name__ == '__main__':
     outputs = []
 
     for i, corpus in enumerate(corpora):
-        print(lang, output_folder)
         output = open(os.path.join(output_folder, lang + '_preprocessed_' + str(i + 1) + '.txt'), 'w', encoding='utf8')
         outputs.append(output)
 
@@ -69,6 +68,7 @@ if __name__ == '__main__':
 
     for output in outputs:
         output.close()
+    print('Done, preprocessed files written to folder', output_folder)
 
 
 

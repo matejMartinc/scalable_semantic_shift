@@ -5,7 +5,8 @@ Official repository for paper "Scalable and Interpretable Semantic Change Detect
 
 ## Installation, documentation ##
 
-Install dependencies if needed: pip install -r requirements.txt
+Install dependencies if needed: pip install -r requirements.txt <br/>
+You also need to download 'tokenizers/punkt/english.pickle' using nltk library.
 
 ### To reproduce the results published in the paper run the code in the command line using following commands: ###
 
@@ -46,7 +47,7 @@ python build_aylien_corpus.py  --input_path pathToAylienJSONFile --output_folder
 
 #### Fine-tune language model:<br/>
 
-Fine-tune BERT model:<br/>
+Fine-tune BERT model for 5 epochs:<br/>
 
 ```
 python fine-tune_BERT.py --train_data_file pathToLMTrainSet --output_dir pathToOutputModelDir --eval_data_file pathToLMTestSet --model_name_or_path modelForSpecificLanguage --mlm --do_train --do_eval --evaluate_during_training
