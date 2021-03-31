@@ -408,7 +408,6 @@ if __name__ == '__main__':
 
         for data, name in dicts:
             data_file = os.path.join(args.results_dir_path, name + ".pkl")
-            centroids_file = args.results_dir_path + "aff_prop_centroids_" + ".pkl"
             pf = open(data_file, 'wb')
             pickle.dump(data, pf)
             pf.close()

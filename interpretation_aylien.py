@@ -2,6 +2,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 import pickle
 import argparse
 import spacy
+import sys
 
 spacy_nlp = spacy.load('en_core_web_sm')
 # python -m spacy download en
@@ -17,18 +18,7 @@ from collections import defaultdict
 from lemmagen3 import Lemmatizer
 
 
-
-def get_clusters_sent(target, method, corpus_slices_type, threshold_size_cluster):
-
-    labels = "aylien_most_changed_words_results/" + method + "_labels_english_fine_tuned_averaged.pkl"
-    sentences = "aylien_most_changed_words_results/sents_english_fine_tuned_averaged.pkl"
-    corpus_slices = []
-    if corpus_slices_type == 'months':
-        corpus_slices = ['january', 'february', 'march', 'april']
-    elif corpus_slices_type == 'sources':
-        corpus_slices = ['fox', 'cnn']
-    else:
-        print("corpus_slices_type argument not recognised")
+def get_clusters_sent(target, corpus_slices, threshold_size_cluster, labels, sentences):
 
     labels = pickle.load(open(labels, 'rb'))
     print(labels.keys())
@@ -40,7 +30,6 @@ def get_clusters_sent(target, method, corpus_slices_type, threshold_size_cluster
             cluster_to_sentence[label][cs].append(sent)
 
     counts = {cs: Counter(labels[target][cs]) for cs in corpus_slices}
-    common_counts = []
     all_labels = []
     for slice, c in counts.items():
         slice_labels = [x[0] for x in c.items()]
@@ -170,8 +159,8 @@ def extract_keywords(target_word, word_clustered_data, max_df, topn):
     return keyword_clusters
 
 
-def full_analysis(word, max_df=0.8, topn=15, method, corpus_slices, threshold_size_cluster):
-    clusters_sents_df = get_clusters_sent(word, method, corpus_slices, threshold_size_cluster)
+def full_analysis(word, max_df, topn, corpus_slices, threshold_size_cluster, labels, sentences):
+    clusters_sents_df = get_clusters_sent(word, corpus_slices, threshold_size_cluster, labels, sentences)
     pivot_distrib = output_distrib(clusters_sents_df, word, corpus_slices)
     keyword_clusters = extract_keywords(word, clusters_sents_df, topn=topn, max_df=max_df)
     for k in keyword_clusters:
@@ -183,37 +172,32 @@ def full_analysis(word, max_df=0.8, topn=15, method, corpus_slices, threshold_si
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Interpret changes')
-    parser.add_argument('--emb_path', type=str, help='Path to the embeddings (pickel file).')
-    parser.add_argument('--res_path', type=str, help='Path to the results of the clustering (csv file).')
-
-    parser.add_argument('--method', type=str, default='K5',
-                        help='Method to use to select the results for analysis: K5, K7 or AP.')
+    parser.add_argument('--target_word', type=str, default='diamond',
+                        help='Target word to analyse')
     parser.add_argument('--nb_target', type=int, default='5', help='Number of target words to select')
-    parser.add_argument('--save_path', type=str, default='', help='Path to save the results.')
+    parser.add_argument("--corpus_slices_names",
+                        default="january;february;march;april",
+                        type=str,
+                        help="Time slices names separated by ';'.")
+    parser.add_argument("--path_to_labels",
+                        default="aylien_results/kmeans_5_labels.pkl",
+                        type=str,
+                        help="Path to file with labels")
+    parser.add_argument("--path_to_sentences",
+                        default="aylien_results/sents.pkl",
+                        type=str,
+                        help="Path to file with sentences")
+
+
+    parser.add_argument('--max_df', type=float, default=0.8, help='Words that appear in more than that percentage of clusters will not be used as keywords.')
+    parser.add_argument('--cluster_size_threshold', type=int, default=10, help='Clusters smaller than a threshold will be deleted.')
+    parser.add_argument('--num_keywords', type=int, default=10, help='Number of keywords per cluster.')
     args = parser.parse_args()
 
-    if args.method == 'K7':
-        method = 'kmeans_7'
-    elif args.method == 'K5':
-        method = 'kmeans_5'
-    elif args.method == 'AP':
-        method = 'aff_prop'
-    target_words_path = 'aylien_target_list.txt'
+    corpus_slices = args.corpus_slices_names.split(';')
 
-    categ = "months"
-
-    print("Selecting keywords:")
-    target_words_reduc = ['strain']
-
-    for word in target_words_reduc:
-        print('##########################################', word, '################################')
-        keyword_clusters = full_analysis(word, max_df, topn, method, corpus_slices, threshold_size_cluster)
-
-    # exemple of how to use it:
-    # python interpretation_aylien.py --res_path '/people/montariol/data/scalable_semantic_change/results/aylien_fox_cnn_results_english_fine_tuned_averaged.csv' --emb_path '/people/montariol/data/scalable_semantic_change/' --nb_target 5
-
-
-
+    print('##########################################', args.target_word, '################################')
+    keyword_clusters = full_analysis(args.target_word, args.max_df, args.num_keywords, corpus_slices, args.threshold_size_cluster, args.path_to_labels, args.path_to_sentences)
 
 
 
