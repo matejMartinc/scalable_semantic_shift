@@ -16,7 +16,10 @@ def build_train_test(input_path, lm_output_train, lm_output_test):
     with open(input_path, 'r', encoding='utf8') as f:
         counter = 0
         for line in f:
-            doc = json.loads(line)
+            try:
+                doc = json.loads(line)
+            except:
+                continue
             text = doc['body']
             text = " ".join(text.split())
             text = text.replace('“','').replace('”','').replace('"','')
@@ -43,7 +46,10 @@ def build_data_sets(input_path, output_folder):
     with open(input_path, 'r', encoding='utf8') as f:
         counter = 0
         for line in f:
-            doc = json.loads(line)
+            try:
+                doc = json.loads(line)
+            except:
+                continue
             text = doc['body']
             text = " ".join(text.split())
             text = text.replace('“', '').replace('”', '').replace('"', '').strip()
@@ -89,6 +95,5 @@ if __name__ == '__main__':
 
     build_train_test(args.input_path, args.lm_output_train, args.lm_output_test)
     build_data_sets(args.input_path, args.output_folder)
-    print('D')
 
 

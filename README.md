@@ -15,7 +15,7 @@ You also need to download 'tokenizers/punkt/english.pickle' using nltk library.
 * COHA corpus (https://www.english-corpora.org/coha/), namely texts from 1960 and 1960 periods. A list of gold standard semantic change scores for 100 manually selected words (see https://www.aclweb.org/anthology/W11-2508.pdf) also needs to be acquired.
 * SEMEVAL corpora (https://www.ims.uni-stuttgart.de/en/research/resources/corpora/sem-eval-ulscd/) together with gold standard annotations for each of the four languages.
 * DURel corpus (https://www.ims.uni-stuttgart.de/en/research/resources/corpora/wocc) + gold standard annotations.
-* Aylien corpus (https://aylien.com/blog/free-coronavirus-news-dataset), namely articles for January, February, March and April.
+* Aylien corpus (https://aylien.com/blog/free-coronavirus-news-dataset), namely articles for January, February, March and April. The list of target words (i.e., vocabulary for which we generate embeddings) can be found in data/aylien folder in the repository.
 
 
 #### Prepare the data :<br/> 
