@@ -29,8 +29,7 @@ def build_train_test(input_path, lm_output_train, lm_output_test):
             month = time.split()[0].split('-')[1]
             months[month] += 1
             counter += 1
-        print(counter)
-        print('months: ', months)
+    print('LM train and test sets created.')
 
 def build_data_sets(input_path, output_folder):
 
@@ -71,6 +70,7 @@ def build_data_sets(input_path, output_folder):
     february.close()
     march.close()
     april.close()
+    print('Corpus slices created.')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -89,5 +89,6 @@ if __name__ == '__main__':
 
     build_train_test(args.input_path, args.lm_output_train, args.lm_output_test)
     build_data_sets(args.input_path, args.output_folder)
+    print('D')
 
 
