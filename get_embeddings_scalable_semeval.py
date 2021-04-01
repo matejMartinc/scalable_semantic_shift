@@ -97,6 +97,7 @@ def tokens_to_batches(ds, tokenizer, batch_size, max_length, target_words, lang)
                     if len(tokenized_text) > max_length:
                         tokenized_text = tokenized_text[:max_length - 1] + ['[SEP]']
                     sent = tokenizer.convert_tokens_to_string(tokenized_text)
+                sent_counter += 1
                 count2sent[sent_counter] = sent
                 sent2count[sent] = sent_counter
                 batch_counter += 1
@@ -231,9 +232,9 @@ def get_time_embeddings(embeddings_path, datasets, tokenizer, model, batch_size,
                             sentence = " ".join(example[last_start:last_finish + 1]).replace(" ##", "")
                         # we ignore sents that span across two sequences
                         if sentence.startswith('[CLS]') and sentence.endswith('[SEP]'):
-                            # print('Sentence: ', sentence)
+                            #print('Sentence: ', sentence)
                             sentence = sent2count[sentence]
-                            # print('Count: ', sentence)
+                            #print('Count: ', sentence)
                             for sent_token, sent_idx in sent_tokens:
                                 # print(sent_token, count2sent[sentence])
                                 if sent_idx in vocab_vectors[sent_token][period + '_text']:

@@ -1,21 +1,17 @@
-from sklearn.feature_extraction.text import CountVectorizer
 import pickle
 import argparse
 import spacy
-import sys
-
 spacy_nlp = spacy.load('en_core_web_sm')
-# python -m spacy download en
 nlp = spacy.load('en')
 from nltk.corpus import stopwords
-from nltk.tokenize import sent_tokenize
 import matplotlib.pyplot as plt
-from collections import Counter, defaultdict
+from collections import Counter
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from matplotlib.pyplot import subplots
 from collections import defaultdict
 from lemmagen3 import Lemmatizer
+import os
 
 
 def get_clusters_sent(target, corpus_slices, threshold_size_cluster, labels, sentences):
@@ -68,7 +64,7 @@ def get_clusters_sent(target, corpus_slices, threshold_size_cluster, labels, sen
     return sent_df
 
 
-def output_distrib(data, word, order):
+def output_distrib(data, word, order, results_dir):
     k = data['label'].unique()
     distrib = data.groupby(['categ', "label"]).size().reset_index(name="count")
     pivot_distrib = distrib.pivot(index='categ', columns='label', values='count')
@@ -80,27 +76,21 @@ def output_distrib(data, word, order):
     x_axis = axs.axes.get_xaxis()
     x_axis.label.set_visible(False)
     plt.xticks(rotation=0)
-    plt.savefig("distrib.png", dpi=(300))
+    plt.savefig(os.path.join(results_dir, word + "_distrib.png"), dpi=(300))
 
 
     return pivot_distrib_norm
 
 
 def extract_topn_from_vector(feature_names, sorted_items, topn):
-    """get the feature names and tf-idf score of top n items"""
-    # use only topn items from vector
     sorted_items = sorted_items[:topn]
 
     score_vals = []
     feature_vals = []
 
     for idx, score in sorted_items:
-        fname = feature_names[idx]
-        # keep track of feature name and its corresponding score
         score_vals.append(round(score, 3))
         feature_vals.append(feature_names[idx])
-    # create a tuples of feature,score
-    # results = zip(feature_vals,score_vals)
     results = {}
     for idx in range(len(feature_vals)):
         results[feature_vals[idx]] = score_vals[idx]
@@ -109,7 +99,6 @@ def extract_topn_from_vector(feature_names, sorted_items, topn):
 
 def extract_keywords(target_word, word_clustered_data, max_df, topn):
     lemmatizer = Lemmatizer('en')
-    # get groups of sentences for each cluster
     l_sent_clust_dict = defaultdict(list)
     sent_clust_dict = defaultdict(list)
     for i, row in word_clustered_data.iterrows():
@@ -124,7 +113,6 @@ def extract_keywords(target_word, word_clustered_data, max_df, topn):
 
     labels, clusters = list(sent_clust_dict.keys()), list(sent_clust_dict.values())
 
-    # print(list(cv.vocabulary_.keys())[:10])
     tfidf_transformer = TfidfVectorizer(smooth_idf=True, use_idf=True, ngram_range=(1,2), max_df=max_df, stop_words=stop, max_features=10000)
     tfidf_transformer.fit(clusters)
     feature_names = tfidf_transformer.get_feature_names()
@@ -159,31 +147,39 @@ def extract_keywords(target_word, word_clustered_data, max_df, topn):
     return keyword_clusters
 
 
-def full_analysis(word, max_df, topn, corpus_slices, threshold_size_cluster, labels, sentences):
+def full_analysis(word, max_df, topn, corpus_slices, threshold_size_cluster, labels, sentences, results_dir):
     clusters_sents_df = get_clusters_sent(word, corpus_slices, threshold_size_cluster, labels, sentences)
-    pivot_distrib = output_distrib(clusters_sents_df, word, corpus_slices)
+    pivot_distrib = output_distrib(clusters_sents_df, word, corpus_slices, results_dir)
     keyword_clusters = extract_keywords(word, clusters_sents_df, topn=topn, max_df=max_df)
+    data = keyword_clusters.items()
+    data = [(x[0], ";".join(x[1])) for x in data]
+    df = pd.DataFrame(data, columns=['cluster label', 'keywords'])
+    df.to_csv(os.path.join(results_dir, 'keywords.csv'), index=False, sep=',', encoding='utf8')
+    print()
+    print('Final keywords per cluster:')
     for k in keyword_clusters:
-        print(k)
-        keywords = keyword_clusters[k]
-        print(keywords)
-    return keyword_clusters
+        print(k, ";".join(keyword_clusters[k]))
+    print("Done! Saved results in folder", results_dir)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Interpret changes')
     parser.add_argument('--target_word', type=str, default='diamond',
                         help='Target word to analyse')
-    parser.add_argument("--corpus_slices_names",
+    parser.add_argument("--corpus_slices",
                         default="january;february;march;april",
                         type=str,
                         help="Time slices names separated by ';'.")
     parser.add_argument("--path_to_labels",
-                        default="aylien_results/kmeans_5_labels.pkl",
+                        default="results_aylien/kmeans_5_labels.pkl",
                         type=str,
                         help="Path to file with labels")
     parser.add_argument("--path_to_sentences",
-                        default="aylien_results/sents.pkl",
+                        default="results_aylien/sents.pkl",
+                        type=str,
+                        help="Path to file with sentences")
+    parser.add_argument("--results_dir_path",
+                        default="interpretation_results",
                         type=str,
                         help="Path to file with sentences")
 
@@ -192,10 +188,12 @@ if __name__ == '__main__':
     parser.add_argument('--num_keywords', type=int, default=10, help='Number of keywords per cluster.')
     args = parser.parse_args()
 
-    corpus_slices = args.corpus_slices_names.split(';')
+    if not os.path.exists(args.results_dir_path):
+        os.makedirs(args.results_dir_path)
 
-    print('##########################################', args.target_word, '################################')
-    keyword_clusters = full_analysis(args.target_word, args.max_df, args.num_keywords, corpus_slices, args.threshold_size_cluster, args.path_to_labels, args.path_to_sentences)
+    corpus_slices = args.corpus_slices.split(';')
+    print('Interpreting semantic change of', args.target_word)
+    full_analysis(args.target_word, args.max_df, args.num_keywords, corpus_slices, args.cluster_size_threshold, args.path_to_labels, args.path_to_sentences, args.results_dir_path)
 
 
 

@@ -92,8 +92,6 @@ def compute_jsd(p, q):
 def cluster_word_embeddings_aff_prop(word_embeddings):
     clustering = AffinityPropagation().fit(word_embeddings)
     labels = clustering.labels_
-    counts = Counter(labels)
-    #print("Aff prop num of clusters:", len(counts))
     exemplars = clustering.cluster_centers_
     return labels, exemplars
 

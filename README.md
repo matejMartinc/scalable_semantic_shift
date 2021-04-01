@@ -87,12 +87,14 @@ To compare the output semantic change scores to the gold standard scores use the
 python evaluate.py --task chooseBetween'coha','durel','semeval' --gold_standard_path pathToGoldStandardScores --results_path pathToCSVfileWithResults --corpus_slices nameOfCorpusSlicesSeparatedBy';'
 ```
 
-Extract keywords and plot clusters distributions for interpretation:<br/>
+Extract keywords for each cluster and plot clusters distributions for interpretation:<br/>
 
 ```
-python interpretation_aylien.py  --emb_path pathToInputEmbeddingFile --res_path PathToClusteringResults --save_path PathToSaveClusters
+python interpretation.py  --target_word targetWord --corpus_slices nameOfCorpusSlicesSeparatedBy';' --path_to_labels pathToFileWithClusterLabels --path_to_sentences pathToFileWithClusterSentences --results_dir_path pathToInterpretationResultsDir
 ```
 
-This script takes the pickled embedding file and the result file (csv) from the previous step. It automatically selects a set of target words among the most drifting ones (but you can also define your own target list), performs clustering (using measure_semantic_shift.py), extracts keywords for each cluster, and plots the cluster distribution on each corpus slice.
+This script requires a specific target word for which embeddings were generated as an input. It extracts keywords for each cluster, and plots the cluster distribution for each corpus slice.
+
+**If something is unclear, check the default arguments for each script. If you still can't make it work, feel free to contact us :).**
 
 
