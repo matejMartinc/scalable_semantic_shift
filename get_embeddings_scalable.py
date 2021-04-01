@@ -377,7 +377,7 @@ if __name__ == '__main__':
     datasets = args.corpus_paths.split(';')
 
     if len(args.path_to_fine_tuned_model) > 0:
-        state_dict =  torch.load(args.pa)
+        state_dict =  torch.load(args.path_to_fine_tuned_model)
 
     if task == 'coha':
         lang = 'English'
