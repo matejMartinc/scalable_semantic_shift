@@ -28,6 +28,7 @@ def get_semeval_shifts(input_path):
             word = word.strip()
             score = float(score.strip())
             shifts_dict[word] = score
+    return shifts_dict
 
 
 def evaluate(result_path, gold_standard_shifts_path, task, slices):
@@ -58,8 +59,8 @@ if __name__ == '__main__':
                         help="Choose a task", choices=['coha', 'semeval', 'durel'])
     parser.add_argument("--gold_standard_path", default='data/coha/Gulordava_word_meaning_change_evaluation_dataset.csv', type=str,
                         help="Path to gold standard file")
-    parser.add_argument('--results_dir_path', type=str, default='results_coha/word_ranking_results_WS.csv', help='Path to the folder to save the results.')
-    parser.add_argument("--corpus_slices_names",
+    parser.add_argument('--results_path', type=str, default='results_coha/word_ranking_results_WS.csv', help='Path to the folder to save the results.')
+    parser.add_argument("--corpus_slices",
                         default='1960;1990',
                         type=str,
                         help="Time slices names separated by ';'.")
@@ -70,8 +71,8 @@ if __name__ == '__main__':
         sys.exit()
 
 
-    aff_prop, kmeans5, kmeans7 = evaluate(args.results_dir_path, args.gold_standard_path, args.task, "-".join(args.corpus_slices_names.split(';')))
-    print(f'Results for {args.task}:')
+    aff_prop, kmeans5, kmeans7 = evaluate(args.results_path, args.gold_standard_path, args.task, "-".join(args.corpus_slices.split(';')))
+    print(f'Pearson correlation results:')
     print('K-means 5:', kmeans5)
     print('K-means 7:', kmeans7)
     print('Aff-prop:', aff_prop)

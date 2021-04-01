@@ -184,7 +184,7 @@ def compute_divergence_across_many_periods(embeddings, labels, splits, corpus_sl
                 jsd, wass = 0, 0
             meaning, meaning_score = detect_meaning_gain_and_loss(all_clusters[i],all_clusters[i+1], threshold)
             all_meanings.append(meaning)
-            if method == 'WS':
+            if method == 'WD':
                 measure = wass
             else:
                 measure = jsd
@@ -225,8 +225,10 @@ if __name__ == '__main__':
     random_state = args.random_state
     threshold = args.cluster_size_threshold
     get_additional_info = args.get_additional_info
+    print(args.embeddings_path)
     embeddings_file = args.embeddings_path
-    corpus_slices = args.corpus_slices
+    corpus_slices = args.corpus_slices.split(';')
+    print("Corpus slices:", corpus_slices)
 
 
     methods = ['WD', 'JSD']
@@ -386,7 +388,7 @@ if __name__ == '__main__':
     if not os.path.exists(args.results_dir_path):
         os.makedirs(args.results_dir_path)
 
-    csv_file = args.results_dir_path + "word_ranking_results_" + args.method + ".csv"
+    csv_file = os.path.join(args.results_dir_path, "word_ranking_results_" + args.method + ".csv")
 
     # save results to CSV
     results_df = pd.DataFrame(results, columns=columns)

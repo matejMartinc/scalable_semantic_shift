@@ -342,7 +342,7 @@ if __name__ == '__main__':
                         default='data/coha/coha_1960.txt;data/coha/coha_1990.txt',
                         type=str,
                         help="Paths to all corpus time slices separated by ';'.")
-    parser.add_argument("--corpus_slices_names",
+    parser.add_argument("--corpus_slices",
                         default='1960;1990',
                         type=str,
                         help="Time slices names separated by ';'. The number should correspond to number of corpus slices paths.")
@@ -353,7 +353,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=16, type=int, help="Batch size.")
     parser.add_argument("--max_sequence_length", default=256, type=int)
     parser.add_argument("--gpu", action="store_true", help="Use gpu.")
-    parser.add_argument("--path_to_fine_tuned_model", default='', type=str,
+    parser.add_argument("--path_to_fine_tuned_model", default='model_coha_epoch_5/pytorch_model.bin', type=str,
                         help="Path to fine-tuned model. If empty, pretrained model is used")
     parser.add_argument("--embeddings_path", default='embeddings/coha_scalable.pickle', type=str,
                         help="Path to output pickle file containing embeddings.")
@@ -361,7 +361,7 @@ if __name__ == '__main__':
 
     batch_size = args.batch_size
     max_length = args.max_sequence_length
-    slices = args.corpus_slices_names.split(';')
+    slices = args.corpus_slices.split(';')
 
     task = args.task
     tasks = ['coha', 'aylien', 'durel']

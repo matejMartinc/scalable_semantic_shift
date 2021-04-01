@@ -27,6 +27,7 @@ python build_coha_corpus.py  --input_folders pathToCOHACorpusSlicesSeparatedBy';
 ```
 
 Generate SEMEVAL language model train and test sets for each language and preprocess the corpora:<br/>
+**Don't forget to put quotes around --input_folders argument, or ';' will be interpreted as a new command. :)**
 
 ```
 python build_semeval_lm_train_test.py  --corpus_paths pathToCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language language --lm_train_test_folder pathToOutputFolder
@@ -60,13 +61,13 @@ For '--model_name_or_path' parameter, see the paper for info about which models 
 Extract embeddings from the preprocessed corpus in .txt for one of the corpora from the SemEval semantic change competiton:<br/>
 
 ```
-python get_embeddings_scalable_semeval.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language english --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile
+python get_embeddings_scalable_semeval.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --corpus_slices nameOfCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language corpusLanguage --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile
 ```
 
 Extract embeddings from the preprocessed corpus in .txt for COHA, DURel or Aylien corpus:<br/>
 
 ```
-python get_embeddings_scalable.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --target_path pathToTargetFile --task chooseBetween'coha','durel','aylien' --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile
+python get_embeddings_scalable.py --corpus_paths pathToPreprocessedCorpusSlicesSeparatedBy';' --corpus_slices nameOfCorpusSlicesSeparatedBy';' --target_path pathToTargetFile --task chooseBetween'coha','durel','aylien' --path_to_fine_tuned_model pathToFineTunedModel --embeddings_path pathToOutputEmbeddingFile
 ```
 
 This creates a pickled file containing all contextual embeddings for all target words.<br/>
@@ -76,12 +77,17 @@ This creates a pickled file containing all contextual embeddings for all target 
 Conduct clustering and measure semantic shift with various methods:<br/>
 
 ```
-python measure_semantic_shift.py --corpus_slices nameOfCorpusSlices --embeddings_path pathToInputEmbeddingFile --results_dir_path pathToOutputResultsDir --method JSD_or_WD
+python measure_semantic_shift.py --corpus_slices nameOfCorpusSlicesSeparatedBy';' --embeddings_path pathToInputEmbeddingFile --results_dir_path pathToOutputResultsDir --method JSD_or_WD
 ```
 
-This script takes the pickled embedding file as an input and creates several files, a csv file containing semantic change scores for each target word (from the full vocabulary or from a pre-defined list) using either Wasserstein distance or Jensen-Shannon divergence, files containing cluster labels for each embedding , files containing cluster centroids and a file containing context (sentence) mapped to each embedding (optionally).<br/>
+This script takes the pickled embedding file as an input and creates a csv file containing semantic change scores for each target word (from the full vocabulary or from a pre-defined list) using either Wasserstein distance or Jensen-Shannon divergence. If --get_additional_info flag is used, the script will generate additional files that are used for interpretation of the change, a file containing cluster labels for each embedding , file containing cluster centroids and a file containing context (sentence) mapped to each embedding. Note that the --get_additional_info flag can only be used if less than 100 words need to be interpreted. If your embeddings contain more than 100 words use the --define_words_to_interpret 'word1;word2;word3' flag, with which you can manually define words for which you want additional info. <br/>
+To compare the output semantic change scores to the gold standard scores use the following command:<br/>
 
-Extract keywords and plot clusters distribution for interpretation:<br/>
+```
+python evaluate.py --task chooseBetween'coha','durel','semeval' --gold_standard_path pathToGoldStandardScores --results_path pathToCSVfileWithResults --corpus_slices nameOfCorpusSlicesSeparatedBy';'
+```
+
+Extract keywords and plot clusters distributions for interpretation:<br/>
 
 ```
 python interpretation_aylien.py  --emb_path pathToInputEmbeddingFile --res_path PathToClusteringResults --save_path PathToSaveClusters
@@ -89,40 +95,4 @@ python interpretation_aylien.py  --emb_path pathToInputEmbeddingFile --res_path 
 
 This script takes the pickled embedding file and the result file (csv) from the previous step. It automatically selects a set of target words among the most drifting ones (but you can also define your own target list), performs clustering (using measure_semantic_shift.py), extracts keywords for each cluster, and plots the cluster distribution on each corpus slice.
 
-
-Generate SemEval submission files for task 1 (binary classification using stopword tresholding method) and task 2 (ranking) using a specific clustering method:<br/>
-
-```
-python make_semeval_answer_file.py --language language --results_file pathToInputResultsCSVFile --method clusteringMethod --target_path pathToSemEvalTargetFile
-```
-
-This script takes the CSV file generated in the previous step as an input and creates SemEval submission files for a specific clustering method (options are 'aff_prop', 'kmeans_5', 'kmeans_7', 'averaging') and language.<br/>
-
-Generate SemEval submission files for task 1 (binary classification) using time period specific cluster method:<br/>
-
-```
-python get_period_specific_clusters.py --language language --results_file pathToInputClusterLabelFile --target_path pathToSemEvalTargetFile
-```
-This script takes one of the cluster labels files generated with the calculate_semantic_change.py script as an input. Use the "--dynamic_treshold" flag if your input labels are for affinity propagation clustering.<br/>
-
-#### Extra:<br/>
-
-Filter Named entities from clusters:<br/>
-
-```
-python filter_ner.py --language language --input_sent_file pathToFileWithSentences --input_label_file pathToInputClusterLabelFile --output_dir_path pathToOutputResultsDir
-```
-
-This script takes one of the cluster labels files and a sentence file generated with the calculate_semantic_change.py script as an input. It is only appropriate for filtering of affinity propagation clusters.<br/>
-
-Script for ensembling of static word2vec and contextual embeddings:<br/>
-
-```
-python ensembling_script.py --language language --method_1 clusteringMethodName --input_file_method_1 pathToInputResultsCSVFile --method_2 word2vecMethodName --input_file_method_2 pathToInputWord2VecFile --output_file_path OutputCSVResultsFile
-```
-
-This script takes the CSV file generated with the calculate_semantic_change.py and the name of the column (results for clustering) in the CSV file as an input, and also the CSV file generated with the code generated
-by using the code published at https://github.com/Garrafao/LSCDetection (see their readme on how to produce the CSV file with the measures/cd.py script) and the name of the column in that CSV file. 
-
-#### If something is unclear, check the default arguments for each script. If you still can't make it work, feel free to contact us :).
 
