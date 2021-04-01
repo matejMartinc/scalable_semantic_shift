@@ -353,7 +353,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=16, type=int, help="Batch size.")
     parser.add_argument("--max_sequence_length", default=256, type=int)
     parser.add_argument("--gpu", action="store_true", help="Use gpu.")
-    parser.add_argument("--path_to_fine_tuned_model", default='model_coha_epoch_5/pytorch_model.bin', type=str,
+    parser.add_argument("--path_to_fine_tuned_model", default='models/model_coha_epoch_5/pytorch_model.bin', type=str,
                         help="Path to fine-tuned model. If empty, pretrained model is used")
     parser.add_argument("--embeddings_path", default='embeddings/coha_scalable.pickle', type=str,
                         help="Path to output pickle file containing embeddings.")
