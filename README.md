@@ -26,9 +26,11 @@ Generate COHA language model train and test sets and preprocess the corpus:<br/>
 python build_coha_corpus.py  --input_folders pathToCOHACorpusSlicesSeparatedBy';' --output_files pathToPreprocessedTxtFilesOnePerEachSliceSeparatedBy';' --lm_output_train pathToOutputLanguageModelTrainFile --lm_output_test pathToOutputLanguageModelTestFile
 ```
 
-Generate SEMEVAL language model train and test sets for each language and preprocess the corpora:<br/>
+
 **Don't forget to put quotes around --input_folders argument, or ';' will be interpreted as a new command. :)**
 
+
+Generate SEMEVAL language model train and test sets for each language and preprocess the corpora:<br/>
 ```
 python build_semeval_lm_train_test.py  --corpus_paths pathToCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language language --lm_train_test_folder pathToOutputFolder
 python build_semeval_corpora.py  --corpus_paths pathToCorpusSlicesSeparatedBy';' --target_path pathToSemEvalTargetFile --language language --output_folder pathToOutputFolder
